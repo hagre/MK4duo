@@ -123,7 +123,10 @@ static_assert(1 >= 0
   #if ENABLED(RA_CONTROL_PANEL)
     + 1
   #endif
-  #if ENABLED(LCD_I2C_SAINSMART_YWROBOT)
+  #if ENABLED(LCD_SAINSMART_I2C_1602)
+    + 1
+  #endif
+  #if ENABLED(LCD_SAINSMART_I2C_2004)
     + 1
   #endif
   #if ENABLED(LCM1602)
@@ -135,7 +138,7 @@ static_assert(1 >= 0
   #if ENABLED(LCD_I2C_VIKI)
     + 1
   #endif
-  #if ENABLED(U8GLIB_SSD1306) && DISABLED(OLED_PANEL_TINYBOY2) && DISABLED(MKS_12864OLED_SSD1306) && DISABLED(WANHAO_D6_OLED)
+  #if ENABLED(U8GLIB_SSD1306) && DISABLED(OLED_PANEL_TINYBOY2) && DISABLED(MKS_12864OLED_SSD1306)
     + 1
   #endif
   #if ENABLED(SAV_3DLCD)
@@ -153,7 +156,7 @@ static_assert(1 >= 0
   #if ENABLED(ZONESTAR_LCD)
     + 1
   #endif
-  #if ENABLED(WANHAO_D6_OLED)
+  #if ENABLED(ULTI_CONTROLLER)
     + 1
   #endif
   #if ENABLED(NEXTION)
@@ -193,8 +196,8 @@ static_assert(1 >= 0
 
 // LCD_BED_LEVELING requirements
 #if ENABLED(LCD_BED_LEVELING)
-  #if !HAS_LCD
-    #error "DEPENDENCY ERROR: LCD_BED_LEVELING requires an LCD controller."
+  #if DISABLED(NEWPANEL)
+    #error "DEPENDENCY ERROR: LCD_BED_LEVELING requires an LCD Normal controller."
   #elif DISABLED(MESH_BED_LEVELING) && !(HAS_ABL && ENABLED(PROBE_MANUALLY))
     #error "DEPENDENCY ERROR: LCD_BED_LEVELING requires MESH_BED_LEVELING or ABL and PROBE_MANUALLY."
   #endif

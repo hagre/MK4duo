@@ -101,11 +101,8 @@ void HAL_stepper_timer_start() {
 }
 
 void HAL_temp_timer_start() {
-  TCCR0A      =  0; // set entire TCCR2A register to 0
-  TEMP_TCCR   =  0; // set entire TEMP_TCCR register to 0
-  TIMER_OCR_0 = 64; // Set divisor for 64 3906 Hz
-  // Set CS01 and CS00 bits for 64 prescaler
-  TEMP_TCCR |= (1 << CS01) | (1 << CS00);
+  TEMP_TCCR =  0; // set entire TEMP_TCCR register to 0
+  TEMP_OCR  = 64; // Set divisor for 64 3906 Hz
 }
 
 bool HAL::execute_100ms = false;
@@ -144,7 +141,7 @@ void HAL::showStartReason() {
 
   void HAL::analogStart() {
 
-    #if MB(RUMBA) && ((TEMP_SENSOR_0==-1)||(TEMP_SENSOR_1==-1)||(TEMP_SENSOR_2==-1)||(TEMP_SENSOR_BED==-1)||(TEMP_SENSOR_CHAMBER==-1)||(TEMP_SENSOR_COOLER==-1))
+    #if MB(RUMBA) && ((TEMP_SENSOR_0==-1) || (TEMP_SENSOR_1==-1) || (TEMP_SENSOR_2==-1) || (TEMP_SENSOR_BED==-1) || (TEMP_SENSOR_CHAMBER==-1) || (TEMP_SENSOR_COOLER==-1))
       // disable RUMBA JTAG in case the thermocouple extension is plugged on top of JTAG connector
       MCUCR = _BV(JTD);
       MCUCR = _BV(JTD);
@@ -156,7 +153,12 @@ void HAL::showStartReason() {
       AnalogInputRead[i] = 0;
     }
 
-    ADCSRA = _BV(ADEN)|_BV(ADSC)|ANALOG_PRESCALER;
+    ADCSRA = _BV(ADEN) | _BV(ADSC) | ANALOG_PRESCALER;
+
+    DIDR0 = 0;
+    #ifdef DIDR2
+      DIDR2 = 0;
+    #endif
 
     while (ADCSRA & _BV(ADSC) ) {} // wait for conversion
 
@@ -179,16 +181,16 @@ void HAL::showStartReason() {
 
   }
 
-  void HAL::AdcChangePin(const Pin old_pin, const Pin new_pin) {
+  void HAL::AdcChangePin(const pin_t old_pin, const pin_t new_pin) {
     UNUSED(old_pin);
     UNUSED(new_pin);
   }
 
 #endif
 
-void HAL::hwSetup() { }
+void HAL::hwSetup() { /*nope*/ }
 
-void HAL::setPwmFrequency(const Pin pin, uint8_t val) {
+void HAL::setPwmFrequency(const pin_t pin, uint8_t val) {
   val &= 0x07;
   switch(digitalPinToTimer(pin)) {
 
@@ -265,9 +267,9 @@ void HAL::setPwmFrequency(const Pin pin, uint8_t val) {
  */
 HAL_TEMP_TIMER_ISR {
 
-  TIMER_OCR_0 += 64;
+  TEMP_OCR += 64;
 
-  if (!printer.IsRunning()) return;
+  if (!printer.isRunning()) return;
 
   // Allow UART ISRs
   HAL_DISABLE_ISRs();
@@ -285,7 +287,7 @@ HAL_TEMP_TIMER_ISR {
     #if HEATER_COUNT > 0
       LOOP_HEATER() {
         if (heaters[h].pin > -1 && ((heaters[h].pwm_pos = (heaters[h].soft_pwm & HEATER_PWM_MASK)) > 0))
-          HAL::digitalWrite(heaters[h].pin, heaters[h].hardwareInverted ? LOW : HIGH);
+          HAL::digitalWrite(heaters[h].pin, heaters[h].isHWInverted() ? LOW : HIGH);
       }
     #endif
   }
@@ -294,7 +296,7 @@ HAL_TEMP_TIMER_ISR {
     #if FAN_COUNT >0
       LOOP_FAN() {
         if ((fans[f].pwm_pos = (fans[f].Speed & FAN_PWM_MASK)) > 0)
-          HAL::digitalWrite(fans[f].pin, fans[f].hardwareInverted ? LOW : HIGH);
+          HAL::digitalWrite(fans[f].pin, fans[f].isHWInverted() ? LOW : HIGH);
       }
     #endif
   }
@@ -302,20 +304,20 @@ HAL_TEMP_TIMER_ISR {
   #if HEATER_COUNT > 0
     LOOP_HEATER() {
       if (heaters[h].pin > -1 && heaters[h].pwm_pos == pwm_count_heater && heaters[h].pwm_pos != HEATER_PWM_MASK)
-        HAL::digitalWrite(heaters[h].pin, heaters[h].hardwareInverted ? HIGH : LOW);
+        HAL::digitalWrite(heaters[h].pin, heaters[h].isHWInverted() ? HIGH : LOW);
     }
   #endif
 
   #if FAN_COUNT > 0
     LOOP_FAN() {
       if (fans[f].Kickstart == 0 && fans[f].pwm_pos == pwm_count_fan && fans[f].pwm_pos != FAN_PWM_MASK)
-        HAL::digitalWrite(fans[f].pin, fans[f].hardwareInverted ? HIGH : LOW);
+        HAL::digitalWrite(fans[f].pin, fans[f].isHWInverted() ? HIGH : LOW);
     }
   #endif
 
   // Calculation cycle approximate a 100ms
   cycle_100ms++;
-  if (cycle_100ms >= 390) {
+  if (cycle_100ms >= (F_CPU / 40960)) {
     cycle_100ms = 0;
     HAL::execute_100ms = true;
     #if ENABLED(FAN_KICKSTART_TIME) && FAN_COUNT > 0
@@ -331,9 +333,8 @@ HAL_TEMP_TIMER_ISR {
     if ((ADCSRA & _BV(ADSC)) == 0) {  // Conversion finished?
       channel = pgm_read_byte(&AnalogInputChannels[adcSamplePos]);
       AnalogInputRead[adcSamplePos] += ADCW;
-      if (++adcCounter[adcSamplePos] >= _BV(OVERSAMPLENR)) {
-        HAL::AnalogInputValues[channel] =
-          AnalogInputRead[adcSamplePos] >> (OVERSAMPLENR);
+      if (++adcCounter[adcSamplePos] >= (OVERSAMPLENR)) {
+        HAL::AnalogInputValues[channel] = AnalogInputRead[adcSamplePos] / (OVERSAMPLENR);
         AnalogInputRead[adcSamplePos] = 0;
         adcCounter[adcSamplePos] = 0;
         // Start next conversion

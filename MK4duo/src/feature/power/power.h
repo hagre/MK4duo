@@ -33,7 +33,7 @@
 
     public: /** Public Parameters */
 
-      static bool powersupply_on;
+      static millis_t lastPowerOn;
 
       #if HAS_POWER_CONSUMPTION_SENSOR
         static int16_t  current_raw_powconsumption;
@@ -44,7 +44,7 @@
 
     public: /** Public Function */
 
-      static void check();
+      static void spin();
       static void power_on();
       static void power_off();
 
@@ -56,8 +56,6 @@
                       analog2error(float current),
                       analog2efficiency(float watt);
       #endif
-
-    private: /** Private Parameters */
 
     private: /** Private Function */
 

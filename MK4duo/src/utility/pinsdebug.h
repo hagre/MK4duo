@@ -41,8 +41,8 @@ bool endstop_monitor_flag = false;
 
 #define _ADD_PIN_2(PIN_NAME, ENTRY_NAME)    static const char ENTRY_NAME[] PROGMEM = { PIN_NAME };
 #define _ADD_PIN(PIN_NAME, COUNTER)         _ADD_PIN_2(PIN_NAME, entry_NAME_##COUNTER)
-#define REPORT_NAME_DIGITAL(NAME, COUNTER)  _ADD_PIN(#NAME, COUNTER)
-#define REPORT_NAME_ANALOG(NAME, COUNTER)   _ADD_PIN(#NAME, COUNTER)
+#define REPORT_NAME_DIGITAL(COUNTER, NAME)  _ADD_PIN(#NAME, COUNTER)
+#define REPORT_NAME_ANALOG(COUNTER, NAME)   _ADD_PIN(#NAME, COUNTER)
 
 #include "pinsdebug_list.h"
 #line 47
@@ -64,12 +64,12 @@ bool endstop_monitor_flag = false;
 
 #define _ADD_PIN_2(ENTRY_NAME, NAME, IS_DIGITAL)  { ENTRY_NAME, NAME, IS_DIGITAL },
 #define _ADD_PIN(NAME, COUNTER, IS_DIGITAL)       _ADD_PIN_2(entry_NAME_##COUNTER, NAME, IS_DIGITAL)
-#define REPORT_NAME_DIGITAL(NAME, COUNTER)        _ADD_PIN(NAME, COUNTER, true)
-#define REPORT_NAME_ANALOG(NAME, COUNTER)         _ADD_PIN(analogInputToDigitalPin(NAME), COUNTER, false)
+#define REPORT_NAME_DIGITAL(COUNTER, NAME)        _ADD_PIN(NAME, COUNTER, true)
+#define REPORT_NAME_ANALOG(COUNTER, NAME)         _ADD_PIN(analogInputToDigitalPin(NAME), COUNTER, false)
 
 typedef struct {
   const char * const name;
-  Pin pin;
+  pin_t pin;
   bool is_digital;
 } PinInfo;
 
@@ -107,7 +107,7 @@ static void print_input_or_output(const bool isout) {
 }
 
 // pretty report with PWM info
-inline void report_pin_state_extended(Pin pin, bool ignore, bool extended = false, const char *start_string = "") {
+inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = false, const char *start_string = "") {
   char buffer[MAX_NAME_LENGTH + 1];   // for the sprintf statements
   bool found = false, multi_name_pin = false;
 
@@ -161,7 +161,7 @@ inline void report_pin_state_extended(Pin pin, bool ignore, bool extended = fals
                 print_input_or_output(false);
                 SERIAL_VAL(digitalRead_mod(pin));
               }
-              else if (HAL::pwm_status(pin) || HAL::tc_status(pin)) {
+              else if (pwm_status(pin)) {
                 // do nothing
               }
               else {
@@ -212,7 +212,7 @@ inline void report_pin_state_extended(Pin pin, bool ignore, bool extended = fals
         }
         else {
           if (IS_ANALOG(pin)) {
-            sprintf_P(buffer, PSTR("   Analog in = %5i"), (int)analogRead(DIGITAL_PIN_TO_ANALOG_PIN(pin)));
+            sprintf_P(buffer, PSTR("   Analog in = %5d"), (int)analogRead(DIGITAL_PIN_TO_ANALOG_PIN(pin)));
             SERIAL_PS(buffer);
             SERIAL_MSG("   ");
           }

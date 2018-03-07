@@ -44,6 +44,7 @@
 
 // Config Commands
 #include "config/m92.h"
+#include "config/m123_m124.h"             // Set Logic or Pullup endstop
 #include "config/m200.h"
 #include "config/m201.h"
 #include "config/m203.h"
@@ -83,7 +84,6 @@
 #include "control/m410.h"                 // Quickstop
 #include "control/m540.h"                 // Enable/disable SD card abort on endstop hit
 #include "control/m605.h"                 // Set dual x-carriage movement mode
-#include "control/m997.h"                 // NPr2 Move Carter xx gradi
 #include "control/m999.h"                 // Restart after being stopped
 
 // Debug Commands
@@ -111,6 +111,8 @@
 #include "feature/m150.h"
 #include "feature/m240.h"                 // Photo Camera
 #include "feature/m600.h"                 // Advanced Pause change filament
+#include "feature/m603.h"                 // Configure filament change
+#include "feature/m701_m702.h"            // Load / Unload filament
 #include "feature/m911_m915.h"            // Set TMC2130 driver
 #include "feature/m922.h"                 // TMC DEBUG
 

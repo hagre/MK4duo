@@ -33,6 +33,24 @@
 
   void unified_bed_leveling::echo_name() { SERIAL_MSG("Unified Bed Leveling"); }
 
+  void unified_bed_leveling::report_current_mesh() {
+    if (!bedlevel.leveling_is_valid()) return;
+    SERIAL_LM(ECHO, "  G29 I 999");
+    for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++) {
+      for (uint8_t y = 0;  y < GRID_MAX_POINTS_Y; y++) {
+        if (!isnan(z_values[x][y])) {
+          SERIAL_SMV(ECHO, "  M421 I", x);
+          SERIAL_MV(" J", y);
+          SERIAL_MV(" Z", z_values[x][y], 6);
+          SERIAL_MV(" ; X", LOGICAL_X_POSITION(mesh_index_to_xpos(x)));
+          SERIAL_MV(", Y", LOGICAL_Y_POSITION(mesh_index_to_ypos(y)));
+          SERIAL_EOL();
+          printer.safe_delay(75);
+        }
+      }
+    }
+  }
+
   void unified_bed_leveling::report_state() {
     echo_name();
     SERIAL_MSG(" System v" UBL_VERSION " ");
@@ -47,6 +65,54 @@
     SERIAL_CHR(')');
     printer.safe_delay(10);
   }
+
+  #if ENABLED(UBL_DEVEL_DEBUGGING)
+
+    static void debug_echo_axis(const AxisEnum axis) {
+      if (mechanics.current_position[axis] == mechanics.destination[axis])
+        SERIAL_MSG("-------------");
+      else
+        SERIAL_VAL(mechanics.destination[X_AXIS], 6);
+    }
+
+    void debug_current_and_destination(const char *title) {
+
+      // if the title message starts with a '!' it is so important, we are going to
+      // ignore the status of the bedlevel.g26_debug_flag
+      if (*title != '!' && !bedlevel.g26_debug_flag) return;
+
+      const float de = mechanics.destination[E_AXIS] - mechanics.current_position[E_AXIS];
+
+      if (de == 0.0) return; // Printing moves only
+
+      const float dx = mechanics.destination[X_AXIS] - mechanics.current_position[X_AXIS],
+                  dy = mechanics.destination[Y_AXIS] - mechanics.current_position[Y_AXIS],
+                  xy_dist = HYPOT(dx, dy);
+
+      if (xy_dist == 0.0) return;
+
+      const float fpmm = de / xy_dist;
+      SERIAL_MV("   fpmm=", fpmm, 6);
+
+      SERIAL_MV("    current=( ", mechanics.current_position[X_AXIS], 6);
+      SERIAL_MV(", ", mechanics.current_position[Y_AXIS], 6);
+      SERIAL_MV(", ", mechanics.current_position[Z_AXIS], 6);
+      SERIAL_MV(", ", mechanics.current_position[E_AXIS], 6);
+      SERIAL_MSG(" )   destination=( ");
+      debug_echo_axis(X_AXIS);
+      SERIAL_MSG(", ");
+      debug_echo_axis(Y_AXIS);
+      SERIAL_MSG(", ");
+      debug_echo_axis(Z_AXIS);
+      SERIAL_MSG(", ");
+      debug_echo_axis(E_AXIS);
+      SERIAL_MSG(" )   ");
+      SERIAL_STR(title);
+      SERIAL_EOL();
+
+    }
+
+  #endif // UBL_DEVEL_DEBUGGING
 
   int8_t unified_bed_leveling::storage_slot;
 

@@ -44,6 +44,8 @@
   #define LOWER_RIGHT   _BV(3)
 #endif
 
+#include <binary.h>
+
 extern volatile uint8_t buttons;  //an extended version of the last checked buttons in a bit array.
 
 ////////////////////////////////////
@@ -68,17 +70,16 @@ extern volatile uint8_t buttons;  //an extended version of the last checked butt
     #define B_DW (BUTTON_DOWN   << B_I2C_BTN_OFFSET)
     #define B_RI (BUTTON_RIGHT  << B_I2C_BTN_OFFSET)
 
+    #undef LCD_CLICKED
     #if BUTTON_EXISTS(ENC)
       // the pause/stop/restart button is connected to BTN_ENC when used
       #define B_ST (EN_C)                                 // Map the pause/stop/resume button into its normalized functional name
-      #undef LCD_CLICKED
       #if ENABLED(INVERT_CLICK_BUTTON)
         #define LCD_CLICKED !(buttons & (B_MI|B_RI|B_ST)) // pause/stop button also acts as click until we implement proper pause/stop.
       #else
         #define LCD_CLICKED  (buttons & (B_MI|B_RI|B_ST)) // pause/stop button also acts as click until we implement proper pause/stop.
       #endif
     #else
-      #undef LCD_CLICKED
       #if ENABLED(INVERT_CLICK_BUTTON)
         #define LCD_CLICKED !(buttons & (B_MI|B_RI))
       #else
@@ -358,6 +359,40 @@ static void lcd_set_custom_characters(
     B00000
   };
 
+  #if ENABLED(LCD_PROGRESS_BAR)
+
+    // CHARSET_INFO
+    const static PROGMEM byte progress[3][8] = { {
+      B00000,
+      B10000,
+      B10000,
+      B10000,
+      B10000,
+      B10000,
+      B10000,
+      B00000
+    }, {
+      B00000,
+      B10100,
+      B10100,
+      B10100,
+      B10100,
+      B10100,
+      B10100,
+      B00000
+    }, {
+      B00000,
+      B10101,
+      B10101,
+      B10101,
+      B10101,
+      B10101,
+      B10101,
+      B00000
+    } };
+
+  #endif // LCD_PROGRESS_BAR
+
   #if HAS_SDSUPPORT
 
     // CHARSET_MENU
@@ -381,40 +416,6 @@ static void lcd_set_custom_characters(
       B00000,
       B00000
     };
-
-    #if ENABLED(LCD_PROGRESS_BAR)
-
-      // CHARSET_INFO
-      const static PROGMEM byte progress[3][8] = { {
-        B00000,
-        B10000,
-        B10000,
-        B10000,
-        B10000,
-        B10000,
-        B10000,
-        B00000
-      }, {
-        B00000,
-        B10100,
-        B10100,
-        B10100,
-        B10100,
-        B10100,
-        B10100,
-        B00000
-      }, {
-        B00000,
-        B10101,
-        B10101,
-        B10101,
-        B10101,
-        B10101,
-        B10101,
-        B00000
-      } };
-
-    #endif // LCD_PROGRESS_BAR
 
   #endif // SDSUPPORT
 
@@ -652,12 +653,8 @@ FORCE_INLINE void _draw_axis_label(const AxisEnum axis, const char* const pstr, 
   else {
     if (!printer.isAxisHomed(axis))
       lcd.write('?');
-    else {
-      if (!printer.isAxisKnownPosition(axis))
-        lcd.write(' ');
-      else
-        lcd_printPGM(pstr);
-    }
+    else
+      lcd_printPGM(pstr);
   }
 }
 
@@ -681,9 +678,9 @@ FORCE_INLINE void _draw_heater_status(const uint8_t heater, const char prefix, c
   #if !HEATER_IDLE_HANDLER
     UNUSED(blink);
   #else
-    const bool is_idle = heaters[heater].is_idle();
+    const bool isIdle = heaters[heater].isIdle();
 
-    if (!blink && is_idle) {
+    if (!blink && isIdle) {
       lcd.write(' ');
       if (t2 >= 10) lcd.write(' ');
       if (t2 >= 100) lcd.write(' ');
@@ -867,7 +864,7 @@ static void lcd_implementation_status_screen() {
 
     lcd.setCursor(LCD_WIDTH - 8, 1);
     _draw_axis_label(Z_AXIS, PSTR(MSG_Z), blink);
-    lcd.print(ftostr52sp(FIXFLOAT(mechanics.current_position[Z_AXIS])));
+    lcd.print(ftostr52sp(FIXFLOAT(LOGICAL_Z_POSITION(mechanics.current_position[Z_AXIS]))));
 
     #if HAS_LEVELING && !HAS_TEMP_BED
       lcd.write(bedlevel.leveling_active || blink ? '_' : ' ');
@@ -1004,10 +1001,10 @@ static void lcd_implementation_status_screen() {
 
   #if ENABLED(ADVANCED_PAUSE_FEATURE)
 
-    static void lcd_implementation_hotend_status(const uint8_t row) {
+    static void lcd_implementation_hotend_status(const uint8_t row, const uint8_t extruder=tools.active_extruder) {
       if (row < LCD_HEIGHT) {
         lcd.setCursor(LCD_WIDTH - 9, row);
-        _draw_heater_status(tools.active_extruder, LCD_STR_THERMOMETER[0], lcd_blink());
+        _draw_heater_status(extruder, LCD_STR_THERMOMETER[0], lcd_blink());
       }
     }
 
@@ -1376,18 +1373,18 @@ static void lcd_implementation_status_screen() {
         }
 
         clear_custom_char(&new_char);
-        new_char.custom_char_bits[0] = 0B11111U;              // char #0 is used for the top line of the box
+        new_char.custom_char_bits[0] = 0b11111U;              // char #0 is used for the top line of the box
         lcd.createChar(0, (uint8_t*)&new_char);
 
         clear_custom_char(&new_char);
         k = (GRID_MAX_POINTS_Y) * pixels_per_y_mesh_pnt + 1;  // row of pixels for the bottom box line
         l = k % (ULTRA_Y_PIXELS_PER_CHAR);                    // row within relevant character cell
-        new_char.custom_char_bits[l] = 0B11111U;              // char #1 is used for the bottom line of the box
+        new_char.custom_char_bits[l] = 0b11111U;              // char #1 is used for the bottom line of the box
         lcd.createChar(1, (uint8_t*)&new_char);
 
         clear_custom_char(&new_char);
         for (j = 0; j < ULTRA_Y_PIXELS_PER_CHAR; j++)
-          new_char.custom_char_bits[j] = 0B10000U;            // char #2 is used for the left edge of the box
+          new_char.custom_char_bits[j] = 0b10000U;            // char #2 is used for the left edge of the box
         lcd.createChar(2, (uint8_t*)&new_char);
 
         clear_custom_char(&new_char);

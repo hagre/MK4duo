@@ -99,6 +99,8 @@
 | M120 | ? | Enable endstop detection
 | M121 | ? | Disable endstop detection
 | M122 | MIN_SOFTWARE_ENDSTOPS or MAX_SOFTWARE_ENDSTOPS | S<1=true/0=false> Enable or disable check software endstop
+| M123 | ENDSTOP | Set Endstop Logic X<bool> Y<bool> Z<bool> I<Z2 bool> J<Z3 bool> K<Z4 bool> P<Probe bool> D<Door bool> F<Filrunout bool> W<Power Check bool>
+| M124 | ENDSTOP | Set Endstop Pullup X<bool> Y<bool> Z<bool> I<Z2 bool> J<Z3 bool> K<Z4 bool> P<Probe bool> D<Door bool> F<Filrunout bool> W<Power Check bool>
 | M125 | PARK_HEAD_ON_PAUSE | Save current position and move to pause park position 
 | M126 | ? | Solenoid Air Valve Open (BariCUDA support by jmil)
 | M127 | ? | Solenoid Air Valve Closed (BariCUDA vent to atmospheric pressure by jmil)
@@ -174,12 +176,15 @@
 | M532 | ? | ```X<percent> L<curLayer> - update current print state progress (X=0..100) and layer L```
 | M540 | ABORT_ON_ENDSTOP_HIT _FEATURE_ENABLED | Use S[0\|1] to enable or disable the stop print on endstop hit
 | M595 | ? | Set hotend AD595 offset and gain
-| M600 | ? | Pause for filament change X[pos] Y[pos] Z[relative lift] E[initial retract] L[later retract distance for removal]
+| M600 | ADVANCED_PAUSE_FEATURE | Pause for filament change T[toolhead] X[pos] Y[pos] Z[relative lift] E[initial retract] U[Retract distance] L[Extrude distance] S[new temp] B[Number of beep]
+| M603 | ADVANCED_PAUSE_FEATURE | Set filament change T[toolhead] U[Retract distance] L[Extrude distance]
 | M605 | ? | Set dual x-carriage movement mode: Smode [ X<duplication x-offset> Rduplication temp offset ]
 | M649 | ? | Set laser options. S<intensity> L<duration> P<ppm> B<set mode> R<raster mm per pulse> F<feedrate>
 | M666 | ? | Delta geometry adjustment.
+| M701 | ADVANCED_PAUSE_FEATURE | Load Filament T[toolhead] Z[distance] L[Extrude distance]
+| M702 | ADVANCED_PAUSE_FEATURE | Unload Filament T[toolhead] Z[distance] U[Retract distance]
 | M851 | ? | Set X Y Z Probe Offset in current units. (Requires Probe)
-| M900 | ? | K<factor> R<ratio> W<width> H<height> D<diam> - Set and/or Get advance K factor and WH/D ratio
+| M900 | LIN_ADVANCE | K<factor> Set Linear Advance K-factor.
 | M906 | ALLIGATOR or HAVE_TMC2130 | Set motor currents XYZ T0-4 E _or_ Set or get motor current in milliamps using axis codes X, Y, Z, E. Report values if no axis codes given. (Requires )
 | M907 | a board with digital trimpots | Set digital trimpot motor current using axis codes
 | M908 | DIGIPOTSS_PIN | Control digital trimpot directly
@@ -190,5 +195,4 @@
 | M928 | ? | Start SD logging (M928 filename.g) - ended by M29
 | M995 | ? | X Y Z Set origin for graphic in NEXTION
 | M996 | ? | ```S<scale>``` Set scale for graphic in NEXTION
-| M997 | ? | NPR2 Color rotate
 | M999 | ? | Restart after being stopped by error

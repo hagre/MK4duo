@@ -37,11 +37,9 @@
  * - Multiextruder MKR6
  * - Multiextruder MKR12
  * - Multiextruder MKSE6 (multiextruder with Servo)
- * - Multiextruder NPr2
  * - Multiextruder DONDOLO
  * - Extruder idle oozing prevention
  * - Extruder run-out prevention
- * - Bowden Filament management
  * - Extruder Advance Linear Pressure Control
  * MOTION FEATURES:
  * - Software endstops
@@ -323,27 +321,6 @@
 
 
 /***********************************************************************
- *********************** Multiextruder NPr2 ****************************
- ***********************************************************************
- *                                                                     *
- * Setting for color meccanism NPr2 by NicolaP (www.3dmakerlab.it)     *
- * Find angle setting by g-Code "M997 Cxxx"                            *
- *                                                                     *
- * Uncomment NPR2 to enable this feature                               *
- * You also need to set E_MIN_PIN in Configuration_pins.h              *
- *                                                                     *
- ***********************************************************************/
-//#define NPR2
-#define COLOR_STEP {0, 10, 20, 30}   // CARTER ANGLE
-#define COLOR_SLOWRATE 170           // MICROSECOND delay for carter motor routine (Carter Motor Feedrate: upper value-slow feedrate)  
-#define COLOR_HOMERATE 4             // FEEDRATE for carter home
-#define MOTOR_ANGLE 1.8              // Nema angle for single step 
-#define DRIVER_MICROSTEP 4           // Microstep moltiplicator driver (set jumper MS1-2-3) off-on-off 1/4 microstepping.
-#define CARTER_MOLTIPLICATOR 14.22   // CARTER MOLTIPLICATOR (gear ratio 13/31-10/31)
-/***********************************************************************/
-
-
-/***********************************************************************
  ********************* Dual Extruder DONDOLO ***************************
  ***********************************************************************
  *                                                                     *
@@ -416,70 +393,32 @@
 /*****************************************************************************************/
 
 
-/***********************************************************************
- ******************** Bowden Filament management ***********************
- ***********************************************************************
- *                                                                     *
- * Uncomment EASY_LOAD to enable this feature                          *
- *                                                                     *
- ***********************************************************************/
-//#define EASY_LOAD
-#define BOWDEN_LENGTH 250       // mm
-#define LCD_PURGE_LENGTH 3      // mm
-#define LCD_RETRACT_LENGTH 3    // mm
-#define LCD_PURGE_FEEDRATE 3    // mm/s
-#define LCD_RETRACT_FEEDRATE 10 // mm/s
-#define LCD_LOAD_FEEDRATE 8     // mm/s
-#define LCD_UNLOAD_FEEDRATE 8   // mm/s
-/***********************************************************************/
-
-
 /*****************************************************************************************
  ****************** Extruder Advance Linear Pressure Control *****************************
  *****************************************************************************************
  *                                                                                       *
- * Assumption: advance = k * (delta velocity)                                            *
+ * Linear Pressure Control v1.5                                                          *
+ *                                                                                       *
+ * Assumption: advance [steps] = k * (delta velocity [steps/s])                          *
  * K=0 means advance disabled.                                                           *
- * To get a rough start value for calibration, measure your "free filament length"       *
- * between the hobbed bolt and the nozzle (in cm). Use the formula below that fits       *
- * your setup, where L is the "free filament length":                                    *
  *                                                                                       *
- * Filament diameter           |   1.75mm  |    3.0mm   |                                *
- * ----------------------------|-----------|------------|                                *
- * Stiff filament (PLA)        | K=47*L/10 | K=139*L/10 |                                *
- * Softer filament (ABS, nGen) | K=88*L/10 | K=260*L/10 |                                *
+ * NOTE: K values for LIN_ADVANCE 1.5 differ from earlier versions!                      *
  *                                                                                       *
- * Some Slicers produce Gcode with randomly jumping extrusion widths occasionally.       *
- * For example within a 0.4mm perimeter it may produce a single segment of 0.05mm width. *
- * While this is harmless for normal printing (the fluid nature of the filament will     *
- * close this very, very tiny gap), it throws off the LIN ADVANCE pressure adaption.     *
- *                                                                                       *
- * For this case LIN ADVANCE E D RATIO can be used to set the extrusion:distance ratio   *
- * to a fixed value. Note that using a fixed ratio will lead to wrong nozzle pressures   *
- * if the slicer is using variable widths or layer heights within one print!             *
- *                                                                                       *
- * This option sets the default E:D ratio at startup. Use `M905` to override this value. *
- *                                                                                       *
- * Example: `M905 W0.4 H0.2 D1.75`, where:                                               *
- *   - W is the extrusion width in mm                                                    *
- *   - H is the layer height in mm                                                       *
- *   - D is the filament diameter in mm                                                  *
- *                                                                                       *
- * Set to 0 to auto-detect the ratio based on given Gcode G1 print moves.                *
- *                                                                                       *
- * Slic3r (including Prusa Slic3r) produces Gcode compatible with the automatic mode.    *
- * Cura (as of this writing) may produce Gcode incompatible with the automatic mode.     *
- *                                                                                       *
- * LIN ADVANCE is only compatible with Cartesian                                         *
+ * Set K around 0.22 for 3mm PLA Direct Drive with ~6.5cm between the                    *
+ * drive gear and heatbreak.                                                             *
+ * Larger K values will be needed for flexible filament and greater distances.           *
+ * If this algorithm produces a higher speed offset than the                             *
+ * extruder can handle (compared to E jerk)                                              *
+ * print acceleration will be reduced during the affected moves to keep within the limit.*
  *                                                                                       *
  *****************************************************************************************/
 //#define LIN_ADVANCE
 
-#define LIN_ADVANCE_K 75
+// Unit: mm compression per 1mm/s extruder speed
+#define LIN_ADVANCE_K 0.22
 
-// The calculated ratio (or 0) according to the formula W * H / ((D / 2) ^ 2 * PI)
-// Example: 0.4 * 0.2 / ((1.75 / 2) ^ 2 * PI) = 0.033260135
-#define LIN_ADVANCE_E_D_RATIO 0
+// If enabled, this will generate debug information output over Serial.
+//#define LA_DEBUG
 /*****************************************************************************************/
 
 
@@ -716,12 +655,13 @@
  * With auto-retract enabled, all G1 E moves over the MIN_RETRACT length  *
  * will be converted to firmware-based retract/recover moves.             *
  *                                                                        *
- * Be sure to turn off auto-retract during filament change.               *
+ * Note: Be sure to turn off auto-retract during filament change.         *
+ * Note: Current status (Retract / Swap / Zlift) isn't reset by G28.      *
  *                                                                        *
  * Note that M207 / M208 / M209 settings are saved to EEPROM.             *
  *                                                                        *
  **************************************************************************/
-//#define FWRETRACT                       // ONLY PARTIALLY TESTED
+//#define FWRETRACT
 
 #define MIN_AUTORETRACT               0.1 // When auto-retract is on, convert E moves of this length and over
 #define MAX_AUTORETRACT              10.0 // Upper limit for auto-retract conversion
@@ -942,9 +882,9 @@
 //#define FILAMENT_RUNOUT_DAV_SYSTEM
 
 // Set true or false should assigned
-#define FIL_RUNOUT_PIN_INVERTING true
-// Uncomment to use internal pullup for pin if the sensor is defined
-//#define ENDSTOPPULLUP_FIL_RUNOUT
+#define FIL_RUNOUT_LOGIC true
+// Put true for use internal pullup for pin if the sensor is defined
+#define PULLUP_FIL_RUNOUT false
 // Time for double check switch in millisecond. Set 0 for disabled
 #define FILAMENT_RUNOUT_DOUBLE_CHECK 0
 // Script execute when filament run out
@@ -1038,15 +978,15 @@
  **************************************************************************
  *                                                                        *
  * A triggered door will prevent new commands from serial or sd card.     *
- * Setting DOOR PIN in Configuration_Pins.h                               *
+ * Setting DOOR OPEN PIN in Configuration_Pins.h                          *
  *                                                                        *
  **************************************************************************/
 //#define DOOR_OPEN
 
 // Set true or false should assigned
 #define DOOR_OPEN_LOGIC false
-// Uncomment to use internal pullup for pin if the sensor is defined.
-//#define DOOR_OPEN_PULLUP
+// Put true for use internal pullup for pin if the sensor is defined.
+#define PULLUP_DOOR_OPEN false
 /**************************************************************************/
 
 
@@ -1062,8 +1002,8 @@
 
 // Set true or false should assigned
 #define POWER_CHECK_LOGIC false
-// Uncomment to use internal pullup for pin if the sensor is defined.
-//#define POWER_CHECK_PULLUP
+// Put true for use internal pullup for pin if the sensor is defined.
+#define PULLUP_POWER_CHECK false
 /**************************************************************************/
 
 
@@ -1159,9 +1099,9 @@
 #define SDSORT_CACHE_VFATS 2      // Maximum number of 13-byte VFAT entries to use for sorting.
                                   // Note: Only affects SCROLL_LONG_FILENAMES with SDSORT_CACHE_NAMES but not SDSORT_DYNAMIC_RAM.
 
-// This enable the firmware to write some configuration that require frequent update, on the SD card
-//#define SD_SETTINGS                     // Uncomment to enable
-#define SD_CFG_SECONDS        300         // seconds between update
+// This enable the firmware to write statistics, that require frequent update on the SD card.
+//#define SD_SETTINGS             // Uncomment to enable
+#define SD_CFG_SECONDS 300        // seconds between update
 /*****************************************************************************************/
 
 
@@ -1171,20 +1111,24 @@
  *                                                                                       *
  * Here you may choose the language used by MK4duo on the LCD menus,                     *
  * the following list of languages are available:                                        *
- *    en, an, bg, ca, cn, cz, cz_utf8, de, el, el-gr, es, eu, fi, fr, gl, hr, it,        *
- *    kana, kana_utf8, nl, pl, pt, pt_utf8, pt-br, pt-br_utf8, ru, tr, uk, zh_CN, zh_TW  *
+ *  en, an, bg, ca, cn, cz, cz_utf8, de, el, el-gr, es, es_utf8, eu, fi, fr, fr_utf8,    *
+ *  gl, hr, it, kana, kana_utf8, nl, pl, pt, pt_utf8, pt-br, pt-br_utf8, sk_utf8 ru,     *
+ *  tr, uk, zh_CN, zh_TW                                                                 *
  *                                                                                       *
  * 'en':'English',          'an':'Aragonese', 'bg':'Bulgarian',       'ca':'Catalan',    *
  * 'cn':'Chinese',          'cz':'Czech',     'de':'German',          'el':'Greek',      *
  * 'el-gr':'Greek (Greece)' 'es':'Spanish',   'eu':'Basque-Euskera',  'fi':'Finnish',    *
  * 'fr':'French',           'gl':'Galician',  'hr':'Croatian',        'it':'Italian',    *
  * 'kana':'Japanese',       'nl':'Dutch',     'pl':'Polish',          'pt':'Portuguese', *
- * 'ru':'Russian',          'tr':'Turkish',   'uk':'Ukrainian',       'hu':'Hungarian',  *
+ * 'ru':'Russian',          'tr':'Turkish',   'uk':'Ukrainian',                          *
+ * 'fr_utf8':'French (UTF8)                                                              *
  * 'cz_utf8':'Czech (UTF8)'                                                              *
  * 'kana_utf8':'Japanese (UTF8)'                                                         *
+ * 'es_utf8':'Spanish (UTF8)'                                                            *
  * 'pt_utf8':'Portuguese (UTF8)'                                                         *
  * 'pt-br':'Portuguese (Brazilian)'                                                      *
  * 'pt-br_utf8':'Portuguese (Brazilian UTF8)'                                            *
+ * 'sk_utf8':'Slovak (UTF8)'                                                             *
  *                                                                                       *
  *****************************************************************************************/
 #define LCD_LANGUAGE en
@@ -1271,11 +1215,11 @@
 
 // This option overrides the default number of encoder pulses needed to
 // produce one step. Should be increased for high-resolution encoders.
-//#define ENCODER_PULSES_PER_STEP 1
+#define ENCODER_PULSES_PER_STEP 5
 
 // Use this option to override the number of step signals required to
 // move between next/prev menu items.
-//#define ENCODER_STEPS_PER_MENU_ITEM 5
+#define ENCODER_STEPS_PER_MENU_ITEM 1
 
 //#define LCD_SCREEN_ROT_90    // Rotate screen orientation for graphics display by 90 degree clockwise
 //#define LCD_SCREEN_ROT_180   // Rotate screen orientation for graphics display by 180 degree clockwise
@@ -1453,9 +1397,12 @@
 //
 //#define RA_CONTROL_PANEL
 
-// Sainsmart YW Robot (LCM1602) LCD Display
 //
-//#define LCD_I2C_SAINSMART_YWROBOT
+// These require F.Malpartida's LiquidCrystal_I2C library
+// https://bitbucket.org/fmalpartida/new-liquidcrystal/wiki/Home
+//
+//#define LCD_SAINSMART_I2C_1602
+//#define LCD_SAINSMART_I2C_2004
 
 // Generic LCM1602 LCD adapter
 //
@@ -1688,7 +1635,7 @@
 // Comment out for all LEDs to change at once.
 #define NEOPIXEL_IS_SEQUENTIAL
 // Initial brightness 0-255
-#define NEOPIXEL_BRIGHTNESS 255
+#define NEOPIXEL_BRIGHTNESS 127
 // Cycle through colors at startup
 //#define NEOPIXEL_STARTUP_TEST
 /**************************************************************************/
@@ -1904,9 +1851,9 @@
  *                                                                                *
  * Enable this for SilentStepStick Trinamic TMC2208 UART-configurable stepper     *
  * drivers.                                                                       *
- * Connect #_SERIAL_TX_PIN to the driver side PDN_UART pin.                       *
+ * Connect #_SERIAL_TX_PIN to the driver side PDN_UART pin with a 1K resistor.    *
  * To use the reading capabilities, also connect #_SERIAL_RX_PIN                  *
- * to #_SERIAL_TX_PIN with a 1K resistor.                                         *
+ * to PDN_UART without a resistor.                                                *
  * The drivers can also be used with hardware serial.                             *
  *                                                                                *
  * You'll also need the TMC2208Stepper Arduino library                            *
@@ -2122,32 +2069,39 @@
  **************************************************************************/
 //#define ADVANCED_PAUSE_FEATURE
 
-#define PAUSE_PARK_RETRACT_FEEDRATE 20      // Initial retract feedrate in mm/s
-#define PAUSE_PARK_RETRACT_LENGTH 5         // Initial retract in mm
-                                            // It is a short retract used immediately after print interrupt before move to filament exchange position
-#define PAUSE_PARK_COOLDOWN_TEMP 0          // Cooling temperature, if this parameter is equal to 0 no cooling.
-#define PAUSE_PARK_RETRACT_2_FEEDRATE 20    // Second retract filament feedrate in mm/s - filament retract post cool down
-#define PAUSE_PARK_RETRACT_2_LENGTH 20      // Second retract filament length from hotend in mm
-#define PAUSE_PARK_UNLOAD_FEEDRATE 100      // Unload filament feedrate in mm/s - filament unloading can be fast
-#define PAUSE_PARK_UNLOAD_LENGTH 100        // Unload filament length from hotend in mm
-                                            // Longer length for bowden printers to unload filament from whole bowden tube,
-                                            // shorter length for printers without bowden to unload filament from extruder only,
-                                            // 0 to disable unloading for manual unloading
-#define PAUSE_PARK_LOAD_FEEDRATE 100        // Load filament feedrate in mm/s - filament loading into the bowden tube can be fast
-#define PAUSE_PARK_LOAD_LENGTH 100          // Load filament length over hotend in mm
-                                            // Longer length for bowden printers to fast load filament into whole bowden tube over the hotend,
-                                            // Short or zero length for printers without bowden where loading is not used
-#define PAUSE_PARK_EXTRUDE_FEEDRATE 5       // Extrude filament feedrate in mm/s - must be slower than load feedrate
-#define PAUSE_PARK_EXTRUDE_LENGTH 50        // Extrude filament length in mm after filament is load over the hotend,
-                                            // 0 to disable for manual extrusion
-                                            // Filament can be extruded repeatedly from the filament exchange menu to fill the hotend,
-                                            // or until outcoming filament color is not clear for filament color change
-#define PAUSE_PARK_NOZZLE_TIMEOUT 45        // Turn off nozzle if user doesn't change filament within this time limit in seconds
-#define PAUSE_PARK_PRINTER_OFF 5            // Turn off printer if user doesn't change filament within this time limit in Minutes
-#define PAUSE_PARK_NUMBER_OF_ALERT_BEEPS 5  // Number of alert beeps before printer goes quiet
-#define PAUSE_PARK_NO_STEPPER_TIMEOUT       // Enable to have stepper motors hold position during filament change
-                                            // even if it takes longer than DEFAULT STEPPER DEACTIVE TIME.
-//#define PARK_HEAD_ON_PAUSE                // Go to filament change position on pause, return to print position on resume
+#define PAUSE_PARK_RETRACT_FEEDRATE 20      // (mm/s) Initial retract feedrate.
+#define PAUSE_PARK_RETRACT_LENGTH 5         // (mm) Initial retract.
+                                            // This short retract is done immediately, before parking the nozzle.
+#define PAUSE_PARK_UNLOAD_FEEDRATE 50       // (mm/s) Unload filament feedrate. This can be pretty fast.
+#define PAUSE_PARK_UNLOAD_LENGTH 100        // (mm) The length of filament for a complete unload.
+                                            //   For Bowden, the full length of the tube and nozzle.
+                                            //   For direct drive, the full length of the nozzle.
+                                            //   Set to 0 for manual unloading.
+#define PAUSE_PARK_LOAD_FEEDRATE 50         // (mm/s) Load filament feedrate. This can be pretty fast.
+#define PAUSE_PARK_LOAD_LENGTH 100          // (mm) Load length of filament, from extruder gear to nozzle.
+                                            //   For Bowden, the full length of the tube and nozzle.
+                                            //   For direct drive, the full length of the nozzle.
+#define PAUSE_PARK_EXTRUDE_FEEDRATE 5       // (mm/s) Extrude feedrate (after loading). Should be slower than load feedrate.
+#define PAUSE_PARK_EXTRUDE_LENGTH 50        // (mm) Length to extrude after loading.
+                                            //   Set to 0 for manual extrusion.
+                                            //   Filament can be extruded repeatedly from the Filament Change menu
+                                            //   until extrusion is consistent, and to purge old filament.
+
+                                            // Filament Unload does a Retract, Delay, and Purge first:
+#define FILAMENT_UNLOAD_RETRACT_LENGTH 10   // (mm) Unload initial retract length.
+#define FILAMENT_UNLOAD_DELAY 5000          // (ms) Delay for the filament to cool after retract.
+#define FILAMENT_UNLOAD_PURGE_LENGTH 8      // (mm) An unretract is done, then this length is purged.
+
+#define PAUSE_PARK_NOZZLE_TIMEOUT 45        // (seconds) Time limit before the nozzle is turned off for safety.
+#define PAUSE_PARK_PRINTER_OFF 5            // (minute) Time limit before turn off printer if user doesn't change filament.
+#define PAUSE_PARK_NUMBER_OF_ALERT_BEEPS 10 // Number of alert beeps before printer goes quiet
+#define PAUSE_PARK_NO_STEPPER_TIMEOUT       // Enable for XYZ steppers to stay powered on during filament change.
+
+//#define PARK_HEAD_ON_PAUSE                // Park the nozzle during pause and filament change.
+//#define HOME_BEFORE_FILAMENT_CHANGE       // Ensure homing has been completed prior to parking for filament change
+
+//#define FILAMENT_LOAD_UNLOAD_GCODES       // Add M701/M702 Load/Unload G-codes, plus Load/Unload in the LCD Prepare menu.
+//#define FILAMENT_UNLOAD_ALL_EXTRUDERS     // Allow M702 to unload all extruders above a minimum target temp (as set by M302)
 /**************************************************************************/
 
 
@@ -2213,9 +2167,11 @@
  *****************************************************************************************/
 //#define USE_WATCHDOG
 
-// If you have a watchdog reboot in an ArduinoMega2560 then the device will hang forever, as a watchdog reset will leave the watchdog on.
+// If you have a watchdog reboot in an ArduinoMega2560 then the device will hang forever,
+// as a watchdog reset will leave the watchdog on.
 // The "WATCHDOG_RESET_MANUAL" goes around this by not using the hardware reset.
-// However, THIS FEATURE IS UNSAFE!, as it will only work if interrupts are disabled. And the code could hang in an interrupt routine with interrupts disabled.
+// However, THIS FEATURE IS UNSAFE!, as it will only work if interrupts are disabled.
+// And the code could hang in an interrupt routine with interrupts disabled.
 //#define WATCHDOG_RESET_MANUAL
 /*****************************************************************************************/
 

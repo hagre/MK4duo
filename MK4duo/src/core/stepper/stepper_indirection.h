@@ -46,13 +46,13 @@
 
 // TMC26X drivers have STEP/DIR on normal pins, but ENABLE via SPI
 #if ENABLED(HAVE_TMCDRIVER)
-  #include <SPI.h>
   #include <TMC26XStepper.h>
   void tmc_init();
 #endif
 
 #if ENABLED(HAVE_TMC2130)
   #include <TMC2130Stepper.h>
+  void tmc_init_cs_pins();
   void tmc2130_init();
 #endif
 
@@ -64,7 +64,6 @@
 
 // L6470 has STEP on normal pins, but DIR/ENABLE via SPI
 #if ENABLED(HAVE_L6470DRIVER)
-  #include <SPI.h>
   #include <L6470.h>
   void L6470_init();
 #endif
@@ -94,9 +93,15 @@
     #define X_ENABLE_WRITE(STATE) WRITE(X_ENABLE_PIN,STATE)
     #define X_ENABLE_READ READ(X_ENABLE_PIN)
   #endif
-  #define X_DIR_INIT SET_OUTPUT(X_DIR_PIN)
-  #define X_DIR_WRITE(STATE) WRITE(X_DIR_PIN,STATE)
-  #define X_DIR_READ READ(X_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(X_IS_TMC2130)
+    #define X_DIR_INIT NOOP
+    #define X_DIR_WRITE(STATE) stepperX.shaft_dir(STATE)
+    #define X_DIR_READ stepperX.shaft_dir()
+  #else
+    #define X_DIR_INIT SET_OUTPUT(X_DIR_PIN)
+    #define X_DIR_WRITE(STATE) WRITE(X_DIR_PIN,STATE)
+    #define X_DIR_READ READ(X_DIR_PIN)
+  #endif
 #endif
 #define X_STEP_INIT SET_OUTPUT(X_STEP_PIN)
 #define X_STEP_WRITE(STATE) WRITE(X_STEP_PIN,STATE)
@@ -127,9 +132,15 @@
     #define Y_ENABLE_WRITE(STATE) WRITE(Y_ENABLE_PIN,STATE)
     #define Y_ENABLE_READ READ(Y_ENABLE_PIN)
   #endif
-  #define Y_DIR_INIT SET_OUTPUT(Y_DIR_PIN)
-  #define Y_DIR_WRITE(STATE) WRITE(Y_DIR_PIN,STATE)
-  #define Y_DIR_READ READ(Y_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(Y_IS_TMC2130)
+    #define Y_DIR_INIT NOOP
+    #define Y_DIR_WRITE(STATE) stepperY.shaft_dir(STATE)
+    #define Y_DIR_READ stepperY.shaft_dir()
+  #else
+    #define Y_DIR_INIT SET_OUTPUT(Y_DIR_PIN)
+    #define Y_DIR_WRITE(STATE) WRITE(Y_DIR_PIN,STATE)
+    #define Y_DIR_READ READ(Y_DIR_PIN)
+  #endif
 #endif
 #define Y_STEP_INIT SET_OUTPUT(Y_STEP_PIN)
 #define Y_STEP_WRITE(STATE) WRITE(Y_STEP_PIN,STATE)
@@ -160,9 +171,15 @@
     #define Z_ENABLE_WRITE(STATE) WRITE(Z_ENABLE_PIN,STATE)
     #define Z_ENABLE_READ READ(Z_ENABLE_PIN)
   #endif
-  #define Z_DIR_INIT SET_OUTPUT(Z_DIR_PIN)
-  #define Z_DIR_WRITE(STATE) WRITE(Z_DIR_PIN,STATE)
-  #define Z_DIR_READ READ(Z_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(Z_IS_TMC2130)
+    #define Z_DIR_INIT NOOP
+    #define Z_DIR_WRITE(STATE) stepperZ.shaft_dir(STATE)
+    #define Z_DIR_READ stepperZ.shaft_dir()
+  #else
+    #define Z_DIR_INIT SET_OUTPUT(Z_DIR_PIN)
+    #define Z_DIR_WRITE(STATE) WRITE(Z_DIR_PIN,STATE)
+    #define Z_DIR_READ READ(Z_DIR_PIN)
+  #endif
 #endif
 #define Z_STEP_INIT SET_OUTPUT(Z_STEP_PIN)
 #define Z_STEP_WRITE(STATE) WRITE(Z_STEP_PIN,STATE)
@@ -194,9 +211,15 @@
       #define X2_ENABLE_WRITE(STATE) WRITE(X2_ENABLE_PIN,STATE)
       #define X2_ENABLE_READ READ(X2_ENABLE_PIN)
     #endif
-    #define X2_DIR_INIT SET_OUTPUT(X2_DIR_PIN)
-    #define X2_DIR_WRITE(STATE) WRITE(X2_DIR_PIN,STATE)
-    #define X2_DIR_READ READ(X2_DIR_PIN)
+    #if ENABLED(HAVE_TMC2130) && ENABLED(X2_IS_TMC2130)
+      #define X2_DIR_INIT NOOP
+      #define X2_DIR_WRITE(STATE) stepperX2.shaft_dir(STATE)
+      #define X2_DIR_READ stepperX2.shaft_dir()
+    #else
+      #define X2_DIR_INIT SET_OUTPUT(X2_DIR_PIN)
+      #define X2_DIR_WRITE(STATE) WRITE(X2_DIR_PIN,STATE)
+      #define X2_DIR_READ READ(X2_DIR_PIN)
+    #endif
   #endif
   #define X2_STEP_INIT SET_OUTPUT(X2_STEP_PIN)
   #define X2_STEP_WRITE(STATE) WRITE(X2_STEP_PIN,STATE)
@@ -228,6 +251,15 @@
       #define Y2_ENABLE_INIT SET_OUTPUT(Y2_ENABLE_PIN)
       #define Y2_ENABLE_WRITE(STATE) WRITE(Y2_ENABLE_PIN,STATE)
       #define Y2_ENABLE_READ READ(Y2_ENABLE_PIN)
+    #endif
+    #if ENABLED(HAVE_TMC2130) && ENABLED(Y2_IS_TMC2130)
+      #define Y2_DIR_INIT NOOP
+      #define Y2_DIR_WRITE(STATE) stepperY2.shaft_dir(STATE)
+      #define Y2_DIR_READ stepperY2.shaft_dir()
+    #else
+      #define Y2_DIR_INIT SET_OUTPUT(Y2_DIR_PIN)
+      #define Y2_DIR_WRITE(STATE) WRITE(Y2_DIR_PIN,STATE)
+      #define Y2_DIR_READ READ(Y2_DIR_PIN)
     #endif
     #define Y2_DIR_INIT SET_OUTPUT(Y2_DIR_PIN)
     #define Y2_DIR_WRITE(STATE) WRITE(Y2_DIR_PIN,STATE)
@@ -264,9 +296,15 @@
       #define Z2_ENABLE_WRITE(STATE) WRITE(Z2_ENABLE_PIN,STATE)
       #define Z2_ENABLE_READ READ(Z2_ENABLE_PIN)
     #endif
-    #define Z2_DIR_INIT SET_OUTPUT(Z2_DIR_PIN)
-    #define Z2_DIR_WRITE(STATE) WRITE(Z2_DIR_PIN,STATE)
-    #define Z2_DIR_READ READ(Z2_DIR_PIN)
+    #if ENABLED(HAVE_TMC2130) && ENABLED(Z2_IS_TMC2130)
+      #define Z2_DIR_INIT NOOP
+      #define Z2_DIR_WRITE(STATE) stepperZ2.shaft_dir(STATE)
+      #define Z2_DIR_READ stepperZ2.shaft_dir()
+    #else
+      #define Z2_DIR_INIT SET_OUTPUT(Z2_DIR_PIN)
+      #define Z2_DIR_WRITE(STATE) WRITE(Z2_DIR_PIN,STATE)
+      #define Z2_DIR_READ READ(Z2_DIR_PIN)
+    #endif
   #endif
   #define Z2_STEP_INIT SET_OUTPUT(Z2_STEP_PIN)
   #define Z2_STEP_WRITE(STATE) WRITE(Z2_STEP_PIN,STATE)
@@ -294,9 +332,15 @@
       #define Z3_ENABLE_WRITE(STATE) WRITE(Z3_ENABLE_PIN,STATE)
       #define Z3_ENABLE_READ READ(Z3_ENABLE_PIN)
     #endif
-    #define Z3_DIR_INIT SET_OUTPUT(Z3_DIR_PIN)
-    #define Z3_DIR_WRITE(STATE) WRITE(Z3_DIR_PIN,STATE)
-    #define Z3_DIR_READ READ(Z3_DIR_PIN)
+    #if Z3_IS_TRINAMIC
+      #define Z3_DIR_INIT NOOP
+      #define Z3_DIR_WRITE(STATE) stepperZ3.shaft_dir(STATE)
+      #define Z3_DIR_READ stepperZ3.shaft_dir()
+    #else
+      #define Z3_DIR_INIT SET_OUTPUT(Z3_DIR_PIN)
+      #define Z3_DIR_WRITE(STATE) WRITE(Z3_DIR_PIN,STATE)
+      #define Z3_DIR_READ READ(Z3_DIR_PIN)
+    #endif
   #endif
   #define Z3_STEP_INIT SET_OUTPUT(Z3_STEP_PIN)
   #define Z3_STEP_WRITE(STATE) WRITE(Z3_STEP_PIN,STATE)
@@ -324,9 +368,15 @@
       #define Z4_ENABLE_WRITE(STATE) WRITE(Z4_ENABLE_PIN,STATE)
       #define Z4_ENABLE_READ READ(Z4_ENABLE_PIN)
     #endif
-    #define Z4_DIR_INIT SET_OUTPUT(Z4_DIR_PIN)
-    #define Z4_DIR_WRITE(STATE) WRITE(Z4_DIR_PIN,STATE)
-    #define Z4_DIR_READ READ(Z4_DIR_PIN)
+    #if Z4_IS_TRINAMIC
+      #define Z4_DIR_INIT NOOP
+      #define Z4_DIR_WRITE(STATE) stepperZ4.shaft_dir(STATE)
+      #define Z4_DIR_READ stepperZ4.shaft_dir()
+    #else
+      #define Z4_DIR_INIT SET_OUTPUT(Z4_DIR_PIN)
+      #define Z4_DIR_WRITE(STATE) WRITE(Z4_DIR_PIN,STATE)
+      #define Z4_DIR_READ READ(Z4_DIR_PIN)
+    #endif
   #endif
   #define Z4_STEP_INIT SET_OUTPUT(Z4_STEP_PIN)
   #define Z4_STEP_WRITE(STATE) WRITE(Z4_STEP_PIN,STATE)
@@ -357,9 +407,15 @@
     #define E0_ENABLE_WRITE(STATE) WRITE(E0_ENABLE_PIN,STATE)
     #define E0_ENABLE_READ READ(E0_ENABLE_PIN)
   #endif
-  #define E0_DIR_INIT SET_OUTPUT(E0_DIR_PIN)
-  #define E0_DIR_WRITE(STATE) WRITE(E0_DIR_PIN,STATE)
-  #define E0_DIR_READ READ(E0_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(E0_IS_TMC2130)
+    #define E0_DIR_INIT NOOP
+    #define E0_DIR_WRITE(STATE) stepperE0.shaft_dir(STATE)
+    #define E0_DIR_READ stepperE0.shaft_dir()
+  #else
+    #define E0_DIR_INIT SET_OUTPUT(E0_DIR_PIN)
+    #define E0_DIR_WRITE(STATE) WRITE(E0_DIR_PIN,STATE)
+    #define E0_DIR_READ READ(E0_DIR_PIN)
+  #endif
 #endif
 #if HAS_DAV_SYSTEM
   #define E0_STEP_INIT SET_OUTPUT(E0_STEP_PIN); SET_OUTPUT(FIL_RUNOUT_DAV_PIN)
@@ -396,9 +452,15 @@
     #define E1_ENABLE_WRITE(STATE) WRITE(E1_ENABLE_PIN,STATE)
     #define E1_ENABLE_READ READ(E1_ENABLE_PIN)
   #endif
-  #define E1_DIR_INIT SET_OUTPUT(E1_DIR_PIN)
-  #define E1_DIR_WRITE(STATE) WRITE(E1_DIR_PIN,STATE)
-  #define E1_DIR_READ READ(E1_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(E1_IS_TMC2130)
+    #define E1_DIR_INIT NOOP
+    #define E1_DIR_WRITE(STATE) stepperE1.shaft_dir(STATE)
+    #define E1_DIR_READ stepperE1.shaft_dir()
+  #else
+    #define E1_DIR_INIT SET_OUTPUT(E1_DIR_PIN)
+    #define E1_DIR_WRITE(STATE) WRITE(E1_DIR_PIN,STATE)
+    #define E1_DIR_READ READ(E1_DIR_PIN)
+  #endif
 #endif
 #define E1_STEP_INIT SET_OUTPUT(E1_STEP_PIN)
 #define E1_STEP_WRITE(STATE) WRITE(E1_STEP_PIN,STATE)
@@ -429,9 +491,15 @@
     #define E2_ENABLE_WRITE(STATE) WRITE(E2_ENABLE_PIN,STATE)
     #define E2_ENABLE_READ READ(E2_ENABLE_PIN)
   #endif
-  #define E2_DIR_INIT SET_OUTPUT(E2_DIR_PIN)
-  #define E2_DIR_WRITE(STATE) WRITE(E2_DIR_PIN,STATE)
-  #define E2_DIR_READ READ(E2_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(E2_IS_TMC2130)
+    #define E2_DIR_INIT NOOP
+    #define E2_DIR_WRITE(STATE) stepperE2.shaft_dir(STATE)
+    #define E2_DIR_READ stepperE2.shaft_dir()
+  #else
+    #define E2_DIR_INIT SET_OUTPUT(E2_DIR_PIN)
+    #define E2_DIR_WRITE(STATE) WRITE(E2_DIR_PIN,STATE)
+    #define E2_DIR_READ READ(E2_DIR_PIN)
+  #endif
 #endif
 #define E2_STEP_INIT SET_OUTPUT(E2_STEP_PIN)
 #define E2_STEP_WRITE(STATE) WRITE(E2_STEP_PIN,STATE)
@@ -462,9 +530,15 @@
     #define E3_ENABLE_WRITE(STATE) WRITE(E3_ENABLE_PIN,STATE)
     #define E3_ENABLE_READ READ(E3_ENABLE_PIN)
   #endif
-  #define E3_DIR_INIT SET_OUTPUT(E3_DIR_PIN)
-  #define E3_DIR_WRITE(STATE) WRITE(E3_DIR_PIN,STATE)
-  #define E3_DIR_READ READ(E3_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(E3_IS_TMC2130)
+    #define E3_DIR_INIT NOOP
+    #define E3_DIR_WRITE(STATE) stepperE3.shaft_dir(STATE)
+    #define E3_DIR_READ stepperE3.shaft_dir()
+  #else
+    #define E3_DIR_INIT SET_OUTPUT(E3_DIR_PIN)
+    #define E3_DIR_WRITE(STATE) WRITE(E3_DIR_PIN,STATE)
+    #define E3_DIR_READ READ(E3_DIR_PIN)
+  #endif
 #endif
 #define E3_STEP_INIT SET_OUTPUT(E3_STEP_PIN)
 #define E3_STEP_WRITE(STATE) WRITE(E3_STEP_PIN,STATE)
@@ -495,9 +569,15 @@
     #define E4_ENABLE_WRITE(STATE) WRITE(E4_ENABLE_PIN,STATE)
     #define E4_ENABLE_READ READ(E4_ENABLE_PIN)
   #endif
-  #define E4_DIR_INIT SET_OUTPUT(E4_DIR_PIN)
-  #define E4_DIR_WRITE(STATE) WRITE(E4_DIR_PIN,STATE)
-  #define E4_DIR_READ READ(E4_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(E4_IS_TMC2130)
+    #define E4_DIR_INIT NOOP
+    #define E4_DIR_WRITE(STATE) stepperE4.shaft_dir(STATE)
+    #define E4_DIR_READ stepperE4.shaft_dir()
+  #else
+    #define E4_DIR_INIT SET_OUTPUT(E4_DIR_PIN)
+    #define E4_DIR_WRITE(STATE) WRITE(E4_DIR_PIN,STATE)
+    #define E4_DIR_READ READ(E4_DIR_PIN)
+  #endif
 #endif
 #define E4_STEP_INIT SET_OUTPUT(E4_STEP_PIN)
 #define E4_STEP_WRITE(STATE) WRITE(E4_STEP_PIN,STATE)
@@ -528,9 +608,15 @@
     #define E5_ENABLE_WRITE(STATE) WRITE(E5_ENABLE_PIN,STATE)
     #define E5_ENABLE_READ READ(E5_ENABLE_PIN)
   #endif
-  #define E5_DIR_INIT SET_OUTPUT(E5_DIR_PIN)
-  #define E5_DIR_WRITE(STATE) WRITE(E5_DIR_PIN,STATE)
-  #define E5_DIR_READ READ(E5_DIR_PIN)
+  #if ENABLED(HAVE_TMC2130) && ENABLED(E5_IS_TMC2130)
+    #define E5_DIR_INIT NOOP
+    #define E5_DIR_WRITE(STATE) stepperE5.shaft_dir(STATE)
+    #define E5_DIR_READ stepperE5.shaft_dir()
+  #else
+    #define E5_DIR_INIT SET_OUTPUT(E5_DIR_PIN)
+    #define E5_DIR_WRITE(STATE) WRITE(E5_DIR_PIN,STATE)
+    #define E5_DIR_READ READ(E5_DIR_PIN)
+  #endif
 #endif
 #define E5_STEP_INIT SET_OUTPUT(E5_STEP_PIN)
 #define E5_STEP_WRITE(STATE) WRITE(E5_STEP_PIN,STATE)
@@ -602,10 +688,10 @@
 
 #if HAS_X2_ENABLE
   #define  enable_X() do{ X_ENABLE_WRITE( X_ENABLE_ON); X2_ENABLE_WRITE( X_ENABLE_ON); }while(0)
-  #define disable_X() do{ X_ENABLE_WRITE(!X_ENABLE_ON); X2_ENABLE_WRITE(!X_ENABLE_ON); printer.setXKnownPosition(false); }while(0)
+  #define disable_X() do{ X_ENABLE_WRITE(!X_ENABLE_ON); X2_ENABLE_WRITE(!X_ENABLE_ON); printer.setXHomed(false); }while(0)
 #elif HAS_X_ENABLE
   #define  enable_X() X_ENABLE_WRITE( X_ENABLE_ON)
-  #define disable_X() do{ X_ENABLE_WRITE(!X_ENABLE_ON); printer.setXKnownPosition(false); }while(0)
+  #define disable_X() do{ X_ENABLE_WRITE(!X_ENABLE_ON); printer.setXHomed(false); }while(0)
 #else
   #define  enable_X() NOOP
   #define disable_X() NOOP
@@ -613,10 +699,10 @@
 
 #if HAS_Y2_ENABLE
   #define  enable_Y() do{ Y_ENABLE_WRITE( Y_ENABLE_ON); Y2_ENABLE_WRITE(Y_ENABLE_ON); }while(0)
-  #define disable_Y() do{ Y_ENABLE_WRITE(!Y_ENABLE_ON); Y2_ENABLE_WRITE(!Y_ENABLE_ON); printer.setYKnownPosition(false); }while(0)
+  #define disable_Y() do{ Y_ENABLE_WRITE(!Y_ENABLE_ON); Y2_ENABLE_WRITE(!Y_ENABLE_ON); printer.setYHomed(false); }while(0)
 #elif HAS_Y_ENABLE
   #define  enable_Y() Y_ENABLE_WRITE( Y_ENABLE_ON)
-  #define disable_Y() do{ Y_ENABLE_WRITE(!Y_ENABLE_ON); printer.setYKnownPosition(false); }while(0)
+  #define disable_Y() do{ Y_ENABLE_WRITE(!Y_ENABLE_ON); printer.setYHomed(false); }while(0)
 #else
   #define  enable_Y() NOOP
   #define disable_Y() NOOP
@@ -624,16 +710,16 @@
 
 #if HAS_Z4_ENABLE
   #define  enable_Z() do{ Z_ENABLE_WRITE( Z_ENABLE_ON); Z2_ENABLE_WRITE(Z_ENABLE_ON);   Z3_ENABLE_WRITE(Z_ENABLE_ON);   Z4_ENABLE_WRITE(Z_ENABLE_ON);}while(0)
-  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); Z2_ENABLE_WRITE(!Z_ENABLE_ON);  Z3_ENABLE_WRITE(!Z_ENABLE_ON);  Z4_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZKnownPosition(false); }while(0)
+  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); Z2_ENABLE_WRITE(!Z_ENABLE_ON);  Z3_ENABLE_WRITE(!Z_ENABLE_ON);  Z4_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZHomed(false); }while(0)
 #elif HAS_Z3_ENABLE
   #define  enable_Z() do{ Z_ENABLE_WRITE( Z_ENABLE_ON); Z2_ENABLE_WRITE(Z_ENABLE_ON);   Z3_ENABLE_WRITE(Z_ENABLE_ON); }while(0)
-  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); Z2_ENABLE_WRITE(!Z_ENABLE_ON);  Z3_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZKnownPosition(false); }while(0)
+  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); Z2_ENABLE_WRITE(!Z_ENABLE_ON);  Z3_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZHomed(false); }while(0)
 #elif HAS_Z2_ENABLE
   #define  enable_Z() do{ Z_ENABLE_WRITE( Z_ENABLE_ON); Z2_ENABLE_WRITE(Z_ENABLE_ON); }while(0)
-  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); Z2_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZKnownPosition(false); }while(0)
+  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); Z2_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZHomed(false); }while(0)
 #elif HAS_Z_ENABLE
   #define  enable_Z() Z_ENABLE_WRITE( Z_ENABLE_ON)
-  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZKnownPosition(false); }while(0)
+  #define disable_Z() do{ Z_ENABLE_WRITE(!Z_ENABLE_ON); printer.setZHomed(false); }while(0)
 #else
   #define  enable_Z() NOOP
   #define disable_Z() NOOP

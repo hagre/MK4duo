@@ -31,13 +31,6 @@
 
 //#define DEBUG_GCODE_PARSER
 
-// Index so that 'X' falls on index 24
-#define PARAM_IND(N)  ((N) >> 3)
-#define PARAM_BIT(N)  ((N) & 0x7)
-#define LETTER_OFF(N) ((N) - 'A')
-#define LETTER_IND(N) PARAM_IND(LETTER_OFF(N))
-#define LETTER_BIT(N) PARAM_BIT(LETTER_OFF(N))
-
 typedef enum {
   TEMPUNIT_C,
   TEMPUNIT_K,
@@ -87,7 +80,7 @@ class GCodeParser {
     static char *value_ptr;       // Set by seen, used to fetch the value
 
     #if ENABLED(FASTER_GCODE_PARSER)
-      static byte codebits[4];    // Parameters pre-scanned
+      static uint32_t codebits;   // Parameters pre-scanned
       static uint8_t param[26];   // For A-Z, offsets into command args
     #else
       static char *command_args;  // Args start here, for slow scan
@@ -102,22 +95,33 @@ class GCodeParser {
     // Reset is done before parsing
     static void reset();
 
+    #define LETTER_BIT(N) ((N) - 'A')
+
+    FORCE_INLINE static bool valid_signless(const char * const p) {
+      return NUMERIC(p[0]) || (p[0] == '.' && NUMERIC(p[1])); // .?[0-9]
+    }
+
+    FORCE_INLINE static bool valid_float(const char * const p) {
+      return valid_signless(p) || ((p[0] == '-' || p[0] == '+') && valid_signless(&p[1])); // [-+]?.?[0-9]
+    }
+
+    FORCE_INLINE static bool valid_int(const char * const p) {
+      return NUMERIC(p[0]) || ((p[0] == '-' || p[0] == '+') && NUMERIC(p[1])); // [-+]?[0-9]
+    }
+
     #if ENABLED(FASTER_GCODE_PARSER)
 
       // Set the flag and pointer for a parameter
-      static void set(const char c, char * const ptr
+      static void set(const char c, char * const ptr) {
+        const uint8_t ind = LETTER_BIT(c);
+        if (ind >= COUNT(param)) return;           // Only A-Z
+        SBI32(codebits, ind);                      // parameter exists
+        param[ind] = ptr ? ptr - command_ptr : 0;  // parameter offset or 0
         #if ENABLED(DEBUG_GCODE_PARSER)
-          , const bool debug=false
-        #endif
-      ) {
-        const uint8_t ind = LETTER_OFF(c);
-        if (ind >= COUNT(param)) return;                // Only A-Z
-        SBI(codebits[PARAM_IND(ind)], PARAM_BIT(ind));  // parameter exists
-        param[ind] = ptr ? ptr - command_ptr : 0;       // parameter offset or 0
-        #if ENABLED(DEBUG_GCODE_PARSER)
-          if (debug) {
-            SERIAL_MV("Set bit ", (int)PARAM_BIT(ind));
-            SERIAL_MV(" of index ", (int)PARAM_IND(ind));
+          if (codenum == 800) {
+            SERIAL_MV("Set bit ", (int)ind);
+            SERIAL_MV(" of codebits (", hex_address((void*)(codebits >> 16)));
+            print_hex_word((uint16_t)(codebits & 0xFFFF));
             SERIAL_EMV(" | param = ",(int)param[ind]);
           }
         #endif
@@ -125,18 +129,20 @@ class GCodeParser {
 
       // Code seen bit was set. If not found, value_ptr is unchanged.
       // This allows "if (seen('A')||seen('B'))" to use the last-found value.
-      // This is volatile because its side-effects are important
       static bool seen(const char c) {
-        const uint8_t ind = LETTER_OFF(c);
+        const uint8_t ind = LETTER_BIT(c);
         if (ind >= COUNT(param)) return false; // Only A-Z
-        const bool b = TEST(codebits[PARAM_IND(ind)], PARAM_BIT(ind));
-        if (b) value_ptr = param[ind] ? command_ptr + param[ind] : (char*)NULL;
+        const bool b = TEST32(codebits, ind);
+        if (b) {
+          char * const ptr = command_ptr + param[ind];
+          value_ptr = param[ind] && valid_float(ptr) ? ptr : (char*)NULL;
+        }
         return b;
       }
 
-      static bool seen_any() { return codebits[3] || codebits[2] || codebits[1] || codebits[0]; }
+      static bool seen_any() { return !!codebits; }
 
-      #define SEEN_TEST(L) TEST(codebits[LETTER_IND(L)], LETTER_BIT(L))
+      #define SEEN_TEST(L) TEST32(codebits, LETTER_BIT(L))
 
     #else // !FASTER_GCODE_PARSER
 
@@ -146,7 +152,7 @@ class GCodeParser {
       static bool seen(const char c) {
         char *p = strchr(command_args, c);
         const bool b = !!p;
-        if (b) value_ptr = DECIMAL_SIGNED(p[1]) ? &p[1] : (char*)NULL;
+        if (b) value_ptr = valid_float(&p[1]) ? &p[1] : (char*)NULL;
         return b;
       }
 
@@ -154,7 +160,7 @@ class GCodeParser {
 
       #define SEEN_TEST(L) !!strchr(command_args, L)
 
-    #endif // FASTER_GCODE_PARSER
+    #endif // !FASTER_GCODE_PARSER
 
     // Seen any axis parameter
     static bool seen_axis() { return SEEN_TEST('X') || SEEN_TEST('Y') || SEEN_TEST('Z') || SEEN_TEST('E'); }
@@ -203,10 +209,10 @@ class GCodeParser {
     inline static uint8_t         value_byte()    { return  (uint8_t)constrain(value_long(), 0, 255); }
 
     // Bool is true with no value or non-zero
-    inline static bool            value_bool()    { return !has_value() || value_byte(); }
+    inline static bool            value_bool()    { return !has_value() || !!value_byte(); }
 
     // Pin value
-    static Pin value_pin();
+    static pin_t value_pin();
 
     // Units modes: Inches, Fahrenheit, Kelvin
 
@@ -304,7 +310,7 @@ class GCodeParser {
     FORCE_INLINE static uint32_t  ulongval(const char c, const uint32_t dval=0)   { return seenval(c) ? value_ulong()         : dval; }
     FORCE_INLINE static float     linearval(const char c, const float dval=0.0)   { return seenval(c) ? value_linear_units()  : dval; }
     FORCE_INLINE static float     celsiusval(const char c, const float dval=0.0)  { return seenval(c) ? value_celsius()       : dval; }
-    FORCE_INLINE static Pin       pinval(const char c, const uint8_t dval=NoPin)  { return seenval(c) ? value_pin()           : dval; }
+    FORCE_INLINE static pin_t     pinval(const char c, const uint8_t dval=NoPin)  { return seenval(c) ? value_pin()           : dval; }
 
   private: /** Private Function */
 

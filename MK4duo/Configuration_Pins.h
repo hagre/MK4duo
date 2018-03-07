@@ -156,7 +156,6 @@
 #define Z3_MAX_PIN          NoPin
 #define Z4_MIN_PIN          NoPin
 #define Z4_MAX_PIN          NoPin
-#define E_MIN_PIN           NoPin
 #define Z_PROBE_PIN         NoPin
 
 // HEATER pin
@@ -218,7 +217,12 @@
 #endif
 
 #if ENABLED(FILAMENT_RUNOUT_SENSOR)
-  #define FIL_RUNOUT_PIN      NoPin
+  #define FIL_RUNOUT0_PIN     NoPin
+  #define FIL_RUNOUT1_PIN     NoPin
+  #define FIL_RUNOUT2_PIN     NoPin
+  #define FIL_RUNOUT3_PIN     NoPin
+  #define FIL_RUNOUT4_PIN     NoPin
+  #define FIL_RUNOUT5_PIN     NoPin
   #define FIL_RUNOUT_DAV_PIN  NoPin
 #endif
 
@@ -247,7 +251,7 @@
 #endif
 
 #if ENABLED(DOOR_OPEN)
-  #define DOOR_PIN NoPin
+  #define DOOR_OPEN_PIN NoPin
 #endif
 
 #if ENABLED(POWER_CHECK)
@@ -271,6 +275,12 @@
 
 #if ENABLED(DHT_SENSOR)
   #define DHT_DATA_PIN NoPin
+#endif
+
+#if ENABLED(HAVE_TMC2130) && ENABLED(SOFT_SPI_TMC2130)
+  #define SOFT_MOSI_PIN 51
+  #define SOFT_MISO_PIN 50
+  #define SOFT_SCK_PIN  52
 #endif
 
 //============================================================================

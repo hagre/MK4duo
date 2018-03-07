@@ -36,7 +36,7 @@ inline void gcode_G0_G1(
     bool lfire = false
   #endif
 ) {
-  if (printer.IsRunning()) {
+  if (printer.isRunning()) {
     commands.get_destination(); // For X Y Z E F
 
     #if ENABLED(FWRETRACT)
@@ -57,9 +57,9 @@ inline void gcode_G0_G1(
     #if ENABLED(LASER) && ENABLED(LASER_FIRE_G1)
       if (lfire) {
         #if ENABLED(INTENSITY_IN_BYTE)
-          if (parser.seenval('S')) laser.intensity = ((float)parser.value_byte() / 255.0) * 100.0;
+          if (parser.seenval('S')) laser.intensity = parser.value_byte();
         #else
-          if (parser.seenval('S')) laser.intensity = parser.value_float();
+          if (parser.seenval('S')) laser.intensity = 255 * parser.value_float() * 0.01;
         #endif
         if (parser.seen('L')) laser.duration = parser.value_ulong();
         if (parser.seen('P')) laser.ppm = parser.value_float();

@@ -31,6 +31,12 @@
 
   Heater heaters[HEATER_COUNT];
 
+  #if ENABLED(PID_ADD_EXTRUSION_RATE)
+    static long last_e_position   = 0,
+                lpq[LPQ_MAX_LEN]  = { 0 };
+    static int  lpq_ptr           = 0;
+  #endif
+
   /**
    * Initialize Heater
    */
@@ -42,28 +48,24 @@
     target_temperature    = 0;
     current_temperature   = 25.0;
     sensor.raw            = 0;
-
-    #if HEATER_IDLE_HANDLER
-      idle_timeout_exceeded = false;
-    #endif
+    last_temperature      = 0.0;
+    temperature_1s        = 0.0;
 
     #if WATCH_THE_HEATER
       watch_target_temp   = 0;
       watch_next_ms       = 0;
     #endif
 
+    setIdle(false);
+
     sensor.CalcDerivedParameters();
 
-    if (printer.IsRunning()) return; //All running not reinitialize
+    if (printer.isRunning()) return; // All running not reinitialize
 
-    if (pin > 0) HAL::pinMode(pin, (hardwareInverted) ? OUTPUT_HIGH : OUTPUT_LOW);
+    if (pin > 0) HAL::pinMode(pin, (isHWInverted()) ? OUTPUT_HIGH : OUTPUT_LOW);
 
     #if ENABLED(SUPPORT_MAX6675) || ENABLED(SUPPORT_MAX31855)
       if (sensor.type == -2 || sensor.type == -1) {
-        OUT_WRITE(SCK_PIN, LOW);
-        OUT_WRITE(MOSI_PIN, HIGH);
-        SET_INPUT_PULLUP(MISO_PIN);
-        OUT_WRITE(SS_PIN, HIGH);
         HAL::pinMode(sensor.pin, OUTPUT_HIGH);
       }
     #endif
@@ -80,28 +82,101 @@
     #endif
   }
 
+  void Heater::updatePID() {
+    if (isUsePid() && Ki != 0) {
+      tempIStateLimitMin = (float)pidDriveMin * 10.0f / Ki;
+      tempIStateLimitMax = (float)pidDriveMax * 10.0f / Ki;
+    }
+  }
+
+  void Heater::get_pid_output(const bool cycle_1s) {
+
+    const float difference = (float)target_temperature - current_temperature;
+
+    millis_t ms = millis();
+
+    #if HEATER_IDLE_HANDLER
+      if (!isIdle() && idle_timeout_ms && ELAPSED(ms, idle_timeout_ms))
+        setIdle(true);
+    #endif
+
+    if (isOFF() || isIdle())
+      soft_pwm = 0;
+    else if (isUsePid()) {
+      if (!isTuning()) {
+        SERIAL_LM(ER, " Need Tuning PID");
+        LCD_ALERTMESSAGEPGM(MSG_NEED_TUNE_PID);
+        setTarget(0);
+      }
+      else if (difference > PID_FUNCTIONAL_RANGE) {
+        soft_pwm = pidMax;
+        tempIState = tempIStateLimitMin;
+      }
+      else if (difference < -(PID_FUNCTIONAL_RANGE) || target_temperature == 0)
+        soft_pwm = 0;
+      else {
+        float pidTerm = Kp * difference;
+        tempIState = constrain(tempIState + difference, tempIStateLimitMin, tempIStateLimitMax);
+        pidTerm += Ki * tempIState * 0.1; // 0.1 = 10Hz
+        float dgain = Kd * (last_temperature - temperature_1s);
+        pidTerm += dgain;
+
+        #if ENABLED(PID_ADD_EXTRUSION_RATE)
+          if (ID == EXTRUDER_IDX) {
+            long e_position = stepper.position(E_AXIS);
+            if (e_position > last_e_position) {
+              lpq[lpq_ptr] = e_position - last_e_position;
+              last_e_position = e_position;
+            }
+            else {
+              lpq[lpq_ptr] = 0;
+            }
+            if (++lpq_ptr >= tools.lpq_len) lpq_ptr = 0;
+            pidTerm += (lpq[lpq_ptr] * mechanics.steps_to_mm[E_AXIS + tools.active_extruder]) * Kc;
+          }
+        #endif // PID_ADD_EXTRUSION_RATE
+
+        soft_pwm = constrain((int)pidTerm, 0, PID_MAX);
+      }
+
+      if (cycle_1s) {
+        last_temperature = temperature_1s;
+        temperature_1s = current_temperature;
+      }
+    }
+    else if (ELAPSED(ms, next_check_ms)) {
+      next_check_ms = ms + temp_check_interval[type];
+      if (tempisrange())
+        soft_pwm = isHeating() ? pidMax : 0;
+      else
+        soft_pwm = 0;
+    }
+
+    #if ENABLED(PID_DEBUG)
+      SERIAL_SMV(ECHO, MSG_PID_DEBUG, HOTEND_INDEX);
+      SERIAL_MV(MSG_PID_DEBUG_INPUT, current_temperature);
+      SERIAL_EMV(MSG_PID_DEBUG_OUTPUT, soft_pwm);
+    #endif // PID_DEBUG
+
+  }
+
   void Heater::print_PID() {
 
-    if (type == IS_HOTEND)
-      SERIAL_SMV(CFG, "  M301 H", (int)ID);
-    #if (PIDTEMPBED)
+    if (isUsePid()) {
+      if (type == IS_HOTEND) SERIAL_SMV(CFG, "  M301 H", (int)ID);
       else if (type == IS_BED) SERIAL_SM(CFG, "  M301 H-1");
-    #endif
-    #if (PIDTEMPCHAMBER)
       else if (type == IS_CHAMBER) SERIAL_SM(CFG, "  M301 H-2");
-    #endif
-    #if (PIDTEMPCOOLER)
       else if (type == IS_COOLER) SERIAL_SM(CFG, "  M301 H-3");
-    #endif
-    else return;
+      else return;
 
-    SERIAL_MV(" P", Kp);
-    SERIAL_MV(" I", Ki);
-    SERIAL_MV(" D", Kd);
-    #if ENABLED(PID_ADD_EXTRUSION_RATE)
-      SERIAL_MV(" C", Kc);
-    #endif
-    SERIAL_EOL();
+      SERIAL_MV(" P", Kp);
+      SERIAL_MV(" I", Ki);
+      SERIAL_MV(" D", Kd);
+      #if ENABLED(PID_ADD_EXTRUSION_RATE)
+        SERIAL_MV(" C", Kc);
+      #endif
+      SERIAL_EOL();
+    }
   }
 
   void Heater::print_parameters() {
@@ -123,13 +198,15 @@
     SERIAL_LMV(CFG, " Pin:", pin);
     SERIAL_LMV(CFG, " Min temp:", (int)mintemp);
     SERIAL_LMV(CFG, " Max temp:", (int)maxtemp);
-    SERIAL_LMT(CFG, " Use PID:", (use_pid ? "On" : "Off"));
-    if (use_pid) {
+    SERIAL_LMT(CFG, " Use PID:", isUsePid() ? "On" : "Off");
+    if (isUsePid()) {
       SERIAL_LMV(CFG, " PID drive min:", (int)pidDriveMin);
       SERIAL_LMV(CFG, " PID drive max:", (int)pidDriveMax);
       SERIAL_LMV(CFG, " PID max:", (int)pidMax);
+      if (!isTuning())
+        SERIAL_LM(CFG, " NOT TUNING PID");
     }
-    SERIAL_LMT(CFG, " Hardware inverted:", (hardwareInverted ? "On" : "Off"));
+    SERIAL_LMT(CFG, " Hardware inverted:", isHWInverted() ? "On" : "Off");
 
   }
 
@@ -165,7 +242,7 @@
     void Heater::SetHardwarePwm() {
       uint8_t pwm_val = 0;
 
-      if (hardwareInverted)
+      if (isHWInverted())
         pwm_val = 255 - soft_pwm;
       else
         pwm_val = soft_pwm;
@@ -193,12 +270,12 @@
   #if HEATER_IDLE_HANDLER
     void Heater::start_idle_timer(const millis_t timeout_ms) {
       idle_timeout_ms = millis() + timeout_ms;
-      idle_timeout_exceeded = false;
+      setIdle(false);
     }
 
     void Heater::reset_idle_timer() {
       idle_timeout_ms = 0;
-      idle_timeout_exceeded = false;
+      setIdle(false);
       #if WATCH_THE_HOTEND
         if (type == IS_HOTEND) start_watching();
       #endif

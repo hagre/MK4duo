@@ -67,7 +67,6 @@
   #error "DEPENDENCY ERROR: Missing setting HOMING_BUMP_DIVISOR."
 #endif
 
-
 // Home direction
 #if DISABLED(X_HOME_DIR)
   #error "DEPENDENCY ERROR: Missing setting X_HOME_DIR."
@@ -77,9 +76,6 @@
 #endif
 #if DISABLED(Z_HOME_DIR)
   #error "DEPENDENCY ERROR: Missing setting Z_HOME_DIR."
-#endif
-#if DISABLED(E_HOME_DIR)
-  #error "DEPENDENCY ERROR: Missing setting E_HOME_DIR."
 #endif
 
 
@@ -299,10 +295,6 @@
   #endif
 #endif
 
-// Linear Advance
-#if ENABLED(LIN_ADVANCE) && !IS_CARTESIAN
-  #error "DEPENDENCY ERROR: Sorry! LIN_ADVANCE is only compatible with Cartesian."
-#endif
 
 // Pin definitions
 #if !PIN_EXISTS(X_STEP)
@@ -401,6 +393,17 @@
 #endif
 #if ENABLED(X2_IS_TMC) && (!PIN_EXISTS(X2_ENABLE) || !PIN_EXISTS(X2_STEP) || !PIN_EXISTS(X2_DIR))
   #error "DEPENDENCY ERROR: You have to set X2_ENABLE_PIN, X2_STEP_PIN and X2_DIR_PIN to a valid pin if you enable X2_IS_TMC."
+#endif
+
+
+/**
+ * Linear Advance 1.5 - Check K value range
+ */
+#if ENABLED(LIN_ADVANCE)
+  static_assert(
+    WITHIN(LIN_ADVANCE_K, 0, 10),
+    "LIN_ADVANCE_K must be a value from 0 to 10."
+  );
 #endif
 
 #endif /* _MECH_SANITYCHECK_H_ */

@@ -25,6 +25,10 @@
 
 #if ENABLED(ULTRA_LCD)
 
+  #if ENABLED(ADVANCED_PAUSE_FEATURE)
+    #include "../feature/advanced_pause/advanced_pause.h"
+  #endif
+
   enum LCDViewAction {
     LCDVIEW_NONE,
     LCDVIEW_REDRAW_NOW,
@@ -38,9 +42,6 @@
   #else
     constexpr bool lcd_external_control = false;
   #endif
-
-  #define BUTTON_EXISTS(BN) (ENABLED(BTN_## BN) && BTN_## BN >= 0)
-  #define BUTTON_PRESSED(BN) !READ(BTN_## BN)
 
   extern int16_t lcd_preheat_hotend_temp[3], lcd_preheat_bed_temp[3], lcd_preheat_fan_speed[3];
 
@@ -87,6 +88,8 @@
   #endif
 
   #define LCD_UPDATE_INTERVAL 100
+  #define BUTTON_EXISTS(BN) (ENABLED(BTN_## BN) && BTN_## BN >= 0)
+  #define BUTTON_PRESSED(BN) !READ(BTN_## BN)
 
   #if ENABLED(ULTIPANEL)
 
@@ -98,12 +101,19 @@
 
     void lcd_goto_screen(screenFunc_t screen, const uint32_t encoder=0);
 
+    // Encoder click is directly connected
+
     #define BLEN_A 0
     #define BLEN_B 1
-    // Encoder click is directly connected
+
+    #define EN_A (_BV(BLEN_A))
+    #define EN_B (_BV(BLEN_B))
+
     #if BUTTON_EXISTS(ENC)
       #define BLEN_C 2
+      #define EN_C (_BV(BLEN_C))
     #endif
+
     #if BUTTON_EXISTS(BACK)
       #define BLEN_D 3
       #define EN_D (_BV(BLEN_D))
@@ -113,31 +123,16 @@
         #define LCD_BACK_CLICKED (buttons&EN_D)
       #endif
     #endif
-    #define EN_A (_BV(BLEN_A))
-    #define EN_B (_BV(BLEN_B))
-    #define EN_C (_BV(BLEN_C))
 
     extern volatile uint8_t buttons;  // The last-checked buttons in a bit array.
     void lcd_buttons_update();
-    void lcd_quick_feedback();        // Audible feedback for a button click - could also be visual
+    void lcd_quick_feedback(const bool clear_buttons); // Audible feedback for a button click - could also be visual
     void lcd_completion_feedback(const bool good=true);
 
     #if ENABLED(ADVANCED_PAUSE_FEATURE)
-      enum AdvancedPauseMessage {
-        ADVANCED_PAUSE_MESSAGE_INIT,
-        ADVANCED_PAUSE_MESSAGE_COOLDOWN,
-        ADVANCED_PAUSE_MESSAGE_UNLOAD,
-        ADVANCED_PAUSE_MESSAGE_INSERT,
-        ADVANCED_PAUSE_MESSAGE_LOAD,
-        ADVANCED_PAUSE_MESSAGE_EXTRUDE,
-        ADVANCED_PAUSE_MESSAGE_OPTION,
-        ADVANCED_PAUSE_MESSAGE_RESUME,
-        ADVANCED_PAUSE_MESSAGE_STATUS,
-        ADVANCED_PAUSE_MESSAGE_CLICK_TO_HEAT_NOZZLE,
-        ADVANCED_PAUSE_MESSAGE_PRINTER_OFF,
-        ADVANCED_PAUSE_MESSAGE_WAIT_FOR_NOZZLES_TO_HEAT
-      };
-      void lcd_advanced_pause_show_message(const AdvancedPauseMessage message);
+      void lcd_advanced_pause_show_message(const AdvancedPauseMessage message,
+                                           const AdvancedPauseMode mode=ADVANCED_PAUSE_MODE_PAUSE_PRINT,
+                                           const uint8_t extruder=tools.active_extruder);
     #endif
 
     #if ENABLED(G26_MESH_VALIDATION)
@@ -224,19 +219,25 @@
                                             )
 
   #elif ENABLED(NEWPANEL)
+
     #if ENABLED(INVERT_CLICK_BUTTON)
       #define LCD_CLICKED !(buttons & EN_C)
     #else
       #define LCD_CLICKED (buttons & EN_C)
     #endif
+
   #else
+
     #define LCD_CLICKED false
+
   #endif
 
   #if ENABLED(AUTO_BED_LEVELING_UBL) || ENABLED(G26_MESH_VALIDATION)
     bool is_lcd_clicked();
     void wait_for_release();
   #endif
+
+  void lcd_eeprom_allert();
 
 #elif DISABLED(NEXTION)
 
@@ -253,6 +254,7 @@
   inline void lcd_reset_alert_level() {}
   inline bool lcd_detected() { return true; }
   inline void lcd_refresh() {}
+  inline void lcd_eeprom_allert() {}
 
 #endif // ULTRA_LCD
 

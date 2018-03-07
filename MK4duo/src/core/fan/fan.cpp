@@ -42,24 +42,25 @@
     Kickstart           = 0;
     pwm_pos             = 0;
     lastpwm             = -1;
-    paused              = false;
     triggerTemperatures = (HOTEND_AUTO_FAN_TEMPERATURE);
 
-    if (printer.IsRunning()) return; // All running not reinitialize
+    setIdle(false);
 
-    if (pin > 0) HAL::pinMode(pin, (hardwareInverted) ? OUTPUT_HIGH : OUTPUT_LOW);
+    if (printer.isRunning()) return; // All running not reinitialize
+
+    if (pin > 0) HAL::pinMode(pin, isHWInverted() ? OUTPUT_HIGH : OUTPUT_LOW);
 
   }
 
   void Fan::SetAutoMonitored(const int8_t h) {
-    if (WITHIN(h, 0, HOTENDS -1) || h == 7)
+    if (WITHIN(h, 0, HOTENDS - 1) || h == 7)
       SBI(autoMonitored, (uint8_t)h);
     else      
       autoMonitored = 0;
-    Check();
+    spin();
   }
 
-  void Fan::Check() {
+  void Fan::spin() {
     static millis_t next_auto_fan_check_ms  = 0,
                     lastMotorOn             = 0;
 
@@ -108,23 +109,10 @@
     }
   }
 
-  void Fan::pause(const bool p) {
-
-    if (p != paused) {
-      paused = p;
-      if (p) {
-        paused_Speed = Speed;
-        Speed = 0;
-      }
-      else
-        Speed = paused_Speed;
-    }
-  }
-
   #if HARDWARE_PWM
     void Fan::SetHardwarePwm() {
       if (pin > NoPin) {
-        if (hardwareInverted)
+        if (isHWInverted())
           pwm_pos = 255 - Speed;
         else
           pwm_pos = Speed;

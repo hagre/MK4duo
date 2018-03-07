@@ -52,8 +52,8 @@ uint16_t GCodeParser::codenum;
 
 #if ENABLED(FASTER_GCODE_PARSER)
   // Optimized Parameters
-  byte GCodeParser::codebits[4];   // found bits
-  uint8_t GCodeParser::param[26];  // parameter offsets from command_ptr
+  uint32_t  GCodeParser::codebits;  // found bits
+  uint8_t   GCodeParser::param[26]; // parameter offsets from command_ptr
 #else
   char *GCodeParser::command_args; // start of parameters
 #endif
@@ -75,7 +75,7 @@ void GCodeParser::reset() {
     subcode = 0;                      // No command sub-code
   #endif
   #if ENABLED(FASTER_GCODE_PARSER)
-    ZERO(codebits);                   // No codes yet
+    codebits = 0;                     // No codes yet
     //ZERO(param);                    // No parameters (should be safe to comment out this line)
   #endif
 }
@@ -187,13 +187,7 @@ void GCodeParser::parse(char *p) {
 
       while (*p == ' ') ++p;                    // skip spaces between parameters & values
 
-      const bool has_num = NUMERIC(p[0])                          //  [0-9]
-                        ||  (p[0] == '.' && NUMERIC(p[1])) || (   // .[0-9]
-                              (p[0] == '-' || p[0] == '+') && (   //  [-+]
-                                NUMERIC(p[1])                     //  [0-9]
-                                || (p[1] == '.' && NUMERIC(p[2])) // .[0-9]
-                              )
-                            );
+      const bool has_num = valid_float(p);
 
       #if ENABLED(DEBUG_GCODE_PARSER)
         if (debug) {
@@ -215,13 +209,7 @@ void GCodeParser::parse(char *p) {
       #endif
 
       #if ENABLED(FASTER_GCODE_PARSER)
-      {
-        set(code, has_num ? p : NULL            // Set parameter exists and pointer (NULL for no number)
-          #if ENABLED(DEBUG_GCODE_PARSER)
-            , debug
-          #endif
-        );
-      }
+        set(code, has_num ? p : NULL);          // Set parameter exists and pointer (NULL for no number)
       #endif
     }
     else if (!string_arg) {                     // Not A-Z? First time, keep as the string_arg
@@ -238,8 +226,8 @@ void GCodeParser::parse(char *p) {
   }
 }
 
-Pin GCodeParser::value_pin() {
-  const Pin pin = (int8_t)value_int();
+pin_t GCodeParser::value_pin() {
+  const pin_t pin = (int8_t)value_int();
   return printer.pin_is_protected(pin) ? NoPin : pin;
 }
 
@@ -257,7 +245,7 @@ Pin GCodeParser::value_pin() {
     #else
       SERIAL_MV(" args: \"", command_args);
     #endif
-    SERIAL_MSG("\"");
+    SERIAL_CHR('"');
     if (string_arg) {
       SERIAL_MSG(" string: \"");
       SERIAL_TXT(string_arg);

@@ -154,7 +154,7 @@ inline void gcode_G29(void) {
   #if MECH(DELTA)
     if (!bedlevel.g29_in_progress) {
       // Homing
-      mechanics.Home(true);
+      mechanics.home(true);
       mechanics.do_blocking_move_to_z(_Z_PROBE_DEPLOY_HEIGHT, mechanics.homing_feedrate_mm_s[Z_AXIS]);
     }
   #else
@@ -261,7 +261,8 @@ inline void gcode_G29(void) {
 
     #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
-      if (parser.seen('W')) {
+      const bool seen_w = parser.seen('W');
+      if (seen_w) {
         if (!bedlevel.leveling_is_valid()) {
           SERIAL_LM(ER, "No bilinear grid");
           return;
@@ -297,10 +298,12 @@ inline void gcode_G29(void) {
         return;
       } // parser.seen('W')
 
+    #else
+      constexpr bool seen_w = false;
     #endif
 
     // Jettison bed leveling data
-    if (parser.seen('J')) {
+    if (!seen_w && parser.seen('J')) {
       bedlevel.reset();
       return;
     }
@@ -327,8 +330,12 @@ inline void gcode_G29(void) {
       abl_grid_points_y = parser.intval('Y', GRID_MAX_POINTS_Y);
       if (parser.seenval('P')) abl_grid_points_x = abl_grid_points_y = parser.value_int();
 
-      if (abl_grid_points_x < 2 || abl_grid_points_y < 2) {
-        SERIAL_EM("?Number of probe points is implausible (2 minimum).");
+      if (!WITHIN(abl_grid_points_x, 2, GRID_MAX_POINTS_X)) {
+        SERIAL_EM("?Probe points (X) is implausible (2-" STRINGIFY(GRID_MAX_POINTS_X) ").");
+        return;
+      }
+      if (!WITHIN(abl_grid_points_y, 2, GRID_MAX_POINTS_Y)) {
+        SERIAL_EM("?Probe points (Y) is implausible (2-" STRINGIFY(GRID_MAX_POINTS_Y) ").");
         return;
       }
 
@@ -460,7 +467,7 @@ inline void gcode_G29(void) {
     if (seenA && bedlevel.g29_in_progress) {
       SERIAL_EM("Manual G29 aborted");
       #if HAS_SOFTWARE_ENDSTOPS
-        printer.setSoftEndstop(enable_soft_endstops);
+        endstops.setSoftEndstop(enable_soft_endstops);
       #endif
       bedlevel.leveling_active = abl_should_enable;
       bedlevel.g29_in_progress = false;
@@ -485,7 +492,7 @@ inline void gcode_G29(void) {
     if (abl_probe_index == 0) {
       // For the initial G29 save software endstop state
       #if HAS_SOFTWARE_ENDSTOPS
-        enable_soft_endstops = printer.IsSoftEndstop();
+        enable_soft_endstops = endstops.isSoftEndstop();
       #endif
     }
     else {
@@ -561,7 +568,7 @@ inline void gcode_G29(void) {
         #if HAS_SOFTWARE_ENDSTOPS
           // Disable software endstops to allow manual adjustment
           // If G29 is not completed, they will not be re-enabled
-          printer.setSoftEndstop(false);
+          endstops.setSoftEndstop(false);
         #endif
         return;
       }
@@ -573,7 +580,7 @@ inline void gcode_G29(void) {
 
         // Re-enable software endstops, if needed
         #if HAS_SOFTWARE_ENDSTOPS
-          printer.setSoftEndstop(enable_soft_endstops);
+          endstops.setSoftEndstop(enable_soft_endstops);
         #endif
       }
 
@@ -586,7 +593,7 @@ inline void gcode_G29(void) {
         #if HAS_SOFTWARE_ENDSTOPS
           // Disable software endstops to allow manual adjustment
           // If G29 is not completed, they will not be re-enabled
-          printer.setSoftEndstop(false);
+          endstops.setSoftEndstop(false);
         #endif
         return;
       }
@@ -596,7 +603,7 @@ inline void gcode_G29(void) {
 
         // Re-enable software endstops, if needed
         #if HAS_SOFTWARE_ENDSTOPS
-          printer.setSoftEndstop(enable_soft_endstops);
+          endstops.setSoftEndstop(enable_soft_endstops);
         #endif
 
         if (!dryrun) {
@@ -958,7 +965,7 @@ inline void gcode_G29(void) {
 
   mechanics.report_current_position();
 
-  KEEPALIVE_STATE(IN_HANDLER);
+  printer.keepalive(InHandler);
 
   if (bedlevel.leveling_active)
     mechanics.sync_plan_position();

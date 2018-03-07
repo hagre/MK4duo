@@ -1,5 +1,18 @@
+### Version 4.3.5 Stable
+* Now if a heater does not have a sensor or fails, it will not be used, but it will not kill.
+* If the PID autotune is not done, the firmware will not switch the heater on until the autotune is performed. Only if have EEPROM.
+* Update Nextion Firmware 4.3" and 7"
+* Fix and clear code
+
 ### Version 4.3.4 Stable
 * CaseLight use Neopixel by Original Marlin
+* Add command M123 - Set Logic Endstop
+* Add command M124 - Set Pullup Endstop
+* Add command M603 - Set filament change
+* Add command M701 - Load Filament
+* Add command M702 - Unload Filament
+* Replaced easy bowden with filament change load & unload
+* Save Logic and Pullup Endstop to EEPROM
 * Fix and clear code
 
 ### Version 4.3.3 Stable

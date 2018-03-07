@@ -66,11 +66,22 @@
 typedef uint32_t  hal_timer_t;
 typedef uint32_t  ptr_int_t;
 
+//#define MOVE_DEBUG
+#if ENABLED(MOVE_DEBUG)
+  extern unsigned int numInterruptsScheduled,
+                      numInterruptsExecuted;
+  extern uint32_t     nextInterruptTime,
+                      nextInterruptScheduledAt,
+                      lastInterruptTime,
+                      acceleration_step_rate,
+                      deceleration_step_rate;
+#endif
+
 // --------------------------------------------------------------------------
 // Includes
 // --------------------------------------------------------------------------
 #include "fastio_Due.h"
-#include "watchdog_Due.h"
+#include "HAL_watchdog_Due.h"
 #include "HAL_timers_Due.h"
 
 // --------------------------------------------------------------------------
@@ -173,8 +184,8 @@ typedef uint32_t  ptr_int_t;
 #undef HIGH
 #define HIGH        1
 
-#define MultiU32X32toH32(intRes, longIn1, longIn2) intRes = ((uint64_t)longIn1 * longIn2 + 0x80000000) >> 32
-#define MultiU32X24toH32(intRes, longIn1, longIn2) intRes = ((uint64_t)longIn1 * longIn2 + 0x00800000) >> 24
+#define MultiU32X32toH32(intRes, longIn1, longIn2)  intRes = ((uint64_t)longIn1 * longIn2) >> 32
+#define MultiU32X24toH32(intRes, longIn1, longIn2)  intRes = ((uint64_t)longIn1 * longIn2 + 0x00800000) >> 24
 
 // Macros for stepper.cpp
 #define HAL_MULTI_ACC(intRes, longIn1, longIn2) MultiU32X32toH32(intRes, longIn1, longIn2)
@@ -209,6 +220,9 @@ typedef uint32_t  ptr_int_t;
 // reset reason set by bootloader
 extern uint8_t MCUSR;
 volatile static uint32_t debug_counter;
+
+extern "C" char *sbrk(int i);
+extern "C" char *dtostrf (double __val, signed char __width, unsigned char __prec, char *__s);
 
 // Class to perform averaging of values read from the ADC
 // numAveraged should be a power of 2 for best efficiency
@@ -293,18 +307,18 @@ class HAL {
   public: /** Public Function */
 
     static void analogStart();
-    static void AdcChangePin(const Pin old_pin, const Pin new_pin);
+    static void AdcChangePin(const pin_t old_pin, const pin_t new_pin);
 
     static void hwSetup(void);
 
-    static bool pwm_status(const Pin pin);
-    static bool tc_status(const Pin pin);
+    static bool pwm_status(const pin_t pin);
+    static bool tc_status(const pin_t pin);
 
-    static void analogWrite(const Pin pin, const uint8_t value, const uint16_t freq=1000);
+    static void analogWrite(const pin_t pin, const uint8_t value, const uint16_t freq=1000);
 
     static void Tick();
 
-    FORCE_INLINE static void pinMode(const Pin pin, const uint8_t mode) {
+    FORCE_INLINE static void pinMode(const pin_t pin, const uint8_t mode) {
       switch (mode) {
         case INPUT:         SET_INPUT(pin);         break;
         case OUTPUT:        SET_OUTPUT(pin);        break;
@@ -314,11 +328,20 @@ class HAL {
         default:                                    break;
       }
     }
-    FORCE_INLINE static void digitalWrite(const Pin pin, const bool value) {
+    FORCE_INLINE static void digitalWrite(const pin_t pin, const bool value) {
       WRITE_VAR(pin, value);
     }
-    FORCE_INLINE static bool digitalRead(const Pin pin) {
+    FORCE_INLINE static bool digitalRead(const pin_t pin) {
       return READ_VAR(pin);
+    }
+    FORCE_INLINE static void setInputPullup(const pin_t pin, const bool onoff) {
+      const PinDescription& pinDesc = g_APinDescription[pin];
+      if (pinDesc.ulPinType != PIO_NOT_A_PIN) {
+        if (onoff)
+          pinDesc.pPort->PIO_PUER = pinDesc.ulPin;
+        else
+          pinDesc.pPort->PIO_PUDR = pinDesc.ulPin;
+      }
     }
 
     FORCE_INLINE static void delayMicroseconds(uint32_t delayUs) {
@@ -336,6 +359,7 @@ class HAL {
         del = delayMs > 100 ? 100 : delayMs;
         delay(del);
         delayMs -= del;
+        watchdog.reset();
       }
     }
     FORCE_INLINE static unsigned long timeInMilliseconds() {
@@ -419,7 +443,7 @@ void spiSend(uint32_t chan, const uint8_t* buf, size_t n);
 uint8_t spiReceive(uint32_t chan);
 
 // Tone for due
-void tone(const Pin t_pin, const uint16_t frequency, const uint16_t duration);
+void tone(const pin_t _pin, const uint16_t frequency, const uint16_t duration);
 
 // EEPROM
 uint8_t eeprom_read_byte(uint8_t* pos);

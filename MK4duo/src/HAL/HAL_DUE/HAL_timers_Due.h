@@ -80,14 +80,13 @@ typedef struct {
 #define NvicPrioritySystick 2
 
 constexpr uint32_t  HAL_STEPPER_TIMER_RATE  = ((F_CPU) / 2); // 42 MHz
-constexpr float     HAL_ACCELERATION_RATE   = (4294967296.0 / (HAL_STEPPER_TIMER_RATE));
+constexpr float     HAL_ACCELERATION_RATE   = (4096.0 * 4096.0 * 256.0 / (HAL_STEPPER_TIMER_RATE));
 
 #define STEPPER_TIMER               4
 #define STEPPER_TIMER_PRESCALE      2.0
 #define STEPPER_TIMER_TICKS_PER_US  (HAL_STEPPER_TIMER_RATE / 1000000)  // 42 stepper timer ticks per us
 #define HAL_STEP_TIMER_ISR          void TC4_Handler()
 
-#define PULSE_TIMER_NUM             STEPPER_TIMER
 #define PULSE_TIMER_PRESCALE        STEPPER_TIMER_PRESCALE
 
 #define AD_PRESCALE_FACTOR          84  // 500 kHz ADC clock 
@@ -156,8 +155,8 @@ constexpr float     HAL_ACCELERATION_RATE   = (4294967296.0 / (HAL_STEPPER_TIMER
 
 static constexpr tTimerConfig TimerConfig [NUM_HARDWARE_TIMERS] = {
   { TC0, 0, TC0_IRQn, 0 },  // 0 - Pin TC 2 - 13
-  { TC0, 1, TC1_IRQn, 0 },  // 1 - [servo timer1]
-  { TC0, 2, TC2_IRQn, 0 },  // 2 - Pin TC 92
+  { TC0, 1, TC1_IRQn, 0 },  // 1 - Pin TC 60 - 61
+  { TC0, 2, TC2_IRQn, 0 },  // 2 - Pin TC 58 - 92
   { TC1, 0, TC3_IRQn, 0 },  // 3 - [NEOPIXEL]
   { TC1, 1, TC4_IRQn, 2 },  // 4 - Stepper
   { TC1, 2, TC5_IRQn, 0 },  // 5 - [servo timer5]
@@ -175,25 +174,27 @@ void HAL_timer_enable_interrupt(const uint8_t timer_num);
 void HAL_timer_disable_interrupt(const uint8_t timer_num);
 bool HAL_timer_interrupt_is_enabled(const uint8_t timer_num);
 
-FORCE_INLINE static void HAL_timer_set_count(const uint8_t timer_num, hal_timer_t count) {
-  const tTimerConfig * const pConfig = &TimerConfig[timer_num];
-  pConfig->pTimerRegs->TC_CHANNEL[pConfig->channel].TC_RC = count;
-}
-
 FORCE_INLINE static hal_timer_t HAL_timer_get_count(const uint8_t timer_num) {
   const tTimerConfig * const pConfig = &TimerConfig[timer_num];
   return pConfig->pTimerRegs->TC_CHANNEL[pConfig->channel].TC_RC;
 }
 
-FORCE_INLINE static void HAL_timer_set_current_count(const uint8_t timer_num, const hal_timer_t count) {
+FORCE_INLINE static void HAL_timer_set_count(const uint8_t timer_num, const hal_timer_t count) {
   const tTimerConfig * const pConfig = &TimerConfig[timer_num];
-  pConfig->pTimerRegs->TC_CHANNEL[pConfig->channel].TC_CV = count;
+  pConfig->pTimerRegs->TC_CHANNEL[pConfig->channel].TC_RC = count;
+
+  #if ENABLED(MOVE_DEBUG)
+		++numInterruptsScheduled;
+		nextInterruptTime = count;
+		nextInterruptScheduledAt = HAL_timer_get_count(STEPPER_TIMER);
+  #endif
 }
 
 FORCE_INLINE static hal_timer_t HAL_timer_get_current_count(const uint8_t timer_num) {
   const tTimerConfig * const pConfig = &TimerConfig[timer_num];
   return pConfig->pTimerRegs->TC_CHANNEL[pConfig->channel].TC_CV;
 }
+
 FORCE_INLINE static void HAL_timer_isr_prologue(uint8_t timer_num) {
   const tTimerConfig * const pConfig = &TimerConfig[timer_num];
   // Reading the status register clears the interrupt flag

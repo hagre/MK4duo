@@ -80,7 +80,7 @@ typedef uint16_t  ptr_int_t;
 // Includes
 // --------------------------------------------------------------------------
 #include "fastio.h"
-#include "watchdog_AVR.h"
+#include "HAL_watchdog_AVR.h"
 
 // Serial
 //#define EXTERNALSERIAL  // Force using arduino serial
@@ -220,8 +220,8 @@ typedef uint16_t  ptr_int_t;
 #define ANALOG_REF_AVCC       _BV(REFS0)
 #define ANALOG_REF            ANALOG_REF_AVCC
 #define ANALOG_PRESCALER      _BV(ADPS0)|_BV(ADPS1)|_BV(ADPS2)
-#define MAX_ANALOG_PIN_NUMBER 11
-#define OVERSAMPLENR          5
+#define MAX_ANALOG_PIN_NUMBER 15
+#define OVERSAMPLENR          16
 #define ABS_ZERO              -273.15
 #define AD_RANGE              1023
 
@@ -236,7 +236,7 @@ typedef uint16_t  ptr_int_t;
 // --------------------------------------------------------------------------
 
 constexpr uint32_t  HAL_STEPPER_TIMER_RATE  = ((F_CPU) / 8);
-constexpr float     HAL_ACCELERATION_RATE   = (16777216.0 / (HAL_STEPPER_TIMER_RATE));
+constexpr float     HAL_ACCELERATION_RATE   = (4096.0 * 4096.0 / (HAL_STEPPER_TIMER_RATE));
 
 #define STEPPER_TIMER_PRESCALE      8
 #define STEPPER_TIMER_TICKS_PER_US  (HAL_STEPPER_TIMER_RATE / 1000000)
@@ -249,7 +249,8 @@ constexpr float     HAL_ACCELERATION_RATE   = (16777216.0 / (HAL_STEPPER_TIMER_R
 #define STEPPER_OCIE          OCIE1A
 
 #define TEMP_TIMER            0
-#define TEMP_TCCR             TCCR0B
+#define TEMP_OCR              OCR0B
+#define TEMP_TCCR             TCCR0A
 #define TEMP_TIMSK            TIMSK0
 #define TEMP_OCIE             OCIE0B
 
@@ -258,7 +259,6 @@ constexpr float     HAL_ACCELERATION_RATE   = (16777216.0 / (HAL_STEPPER_TIMER_R
 #define TIMER_COUNTER_0       TCNT0
 #define TIMER_COUNTER_1       TCNT1
 
-#define PULSE_TIMER_NUM       STEPPER_TIMER
 #define PULSE_TIMER_PRESCALE  8
 
 #define HAL_STEPPER_TIMER_START()     HAL_stepper_timer_start()
@@ -276,7 +276,6 @@ constexpr float     HAL_ACCELERATION_RATE   = (16777216.0 / (HAL_STEPPER_TIMER_R
 #define _CAT(a, ...) a ## __VA_ARGS__
 #define HAL_timer_set_count(timer, count)         (_CAT(TIMER_OCR_, timer) = count)
 #define HAL_timer_get_count(timer)                _CAT(TIMER_OCR_, timer)
-#define HAL_timer_set_current_count(timer, count) (_CAT(TIMER_COUNTER_, timer) = count)
 #define HAL_timer_get_current_count(timer)        _CAT(TIMER_COUNTER_, timer)
 #define HAL_timer_isr_prologue(timer_num)
 
@@ -386,7 +385,7 @@ class HAL {
 
     #if ANALOG_INPUTS > 0
       static void analogStart();
-      static void AdcChangePin(const Pin old_pin, const Pin new_pin);
+      static void AdcChangePin(const pin_t old_pin, const pin_t new_pin);
     #endif
 
     static void hwSetup();
@@ -396,18 +395,18 @@ class HAL {
     static int getFreeRam();
     static void resetHardware();
 
-    static void setPwmFrequency(const Pin pin, uint8_t val);
+    static void setPwmFrequency(const pin_t pin, uint8_t val);
 
-    static inline void analogWrite(const Pin pin, const uint8_t value) {
+    static inline void analogWrite(const pin_t pin, const uint8_t value) {
       ::analogWrite(pin, value);
     }
-    static inline void digitalWrite(const Pin pin, const uint8_t value) {
+    static inline void digitalWrite(const pin_t pin, const uint8_t value) {
       ::digitalWrite(pin, value);
     }
-    static inline uint8_t digitalRead(const Pin pin) {
+    static inline uint8_t digitalRead(const pin_t pin) {
       return ::digitalRead(pin);
     }
-    static inline void pinMode(const Pin pin, const uint8_t mode) {
+    static inline void pinMode(const pin_t pin, const uint8_t mode) {
       switch (mode) {
         case INPUT:
           ::pinMode(pin, INPUT); break;
@@ -424,6 +423,9 @@ class HAL {
         default: break;
       }
     }
+    static inline void setInputPullup(const pin_t pin, const bool onoff) {
+      ::digitalWrite(pin, onoff);
+    }
 
     static inline void delayMicroseconds(const uint16_t delayUs) {
       ::delayMicroseconds(delayUs);
@@ -434,9 +436,7 @@ class HAL {
         del = delayMs > 100 ? 100 : delayMs;
         delay(del);
         delayMs -= del;
-        #if ENABLED(USE_WATCHDOG)
-          watchdog_reset();
-        #endif
+        watchdog.reset();
       }
     }
     static inline uint32_t timeInMilliseconds() {

@@ -33,12 +33,12 @@
 
   Core_Mechanics mechanics;
 
-  void Core_Mechanics::Init() { }
+  void Core_Mechanics::init() { }
 
   /**
    * Home Core
    */
-  void Core_Mechanics::Home(const bool always_home_all) {
+  void Core_Mechanics::home(const bool always_home_all) {
 
     if (printer.debugSimulation()) {
       LOOP_XYZ(axis) set_axis_is_at_home((AxisEnum)axis);
@@ -56,7 +56,7 @@
     #endif
 
     #if HAS_POWER_SWITCH
-      if (!powerManager.powersupply_on) powerManager.power_on(); // Power On if power is off
+      if (!powerManager.lastPowerOn) powerManager.power_on(); // Power On if power is off
     #endif
 
     // Wait for planner moves to finish!
@@ -94,9 +94,9 @@
 
     printer.setup_for_endstop_or_probe_move();
     #if ENABLED(DEBUG_LEVELING_FEATURE)
-      if (printer.debugLeveling()) SERIAL_EM("> printer.setEndstopEnabled(true)");
+      if (printer.debugLeveling()) SERIAL_EM("> endstops.setEnabled(true)");
     #endif
-    printer.setEndstopEnabled(true); // Enable endstops for next homing move
+    endstops.setEnabled(true); // Enable endstops for next homing move
 
     bool come_back = parser.boolval('B');
     float lastpos[NUM_AXIS];
@@ -109,16 +109,14 @@
     #if ENABLED(FORCE_HOME_XY_BEFORE_Z)
       const bool  homeZ = always_home_all || parser.seen('Z'),
                   homeX = always_home_all || homeZ || parser.seen('X'),
-                  homeY = always_home_all || homeZ || parser.seen('Y'),
-                  homeE = always_home_all || parser.seen('E');
+                  homeY = always_home_all || homeZ || parser.seen('Y');
     #else
       const bool  homeX = always_home_all || parser.seen('X'),
                   homeY = always_home_all || parser.seen('Y'),
-                  homeZ = always_home_all || parser.seen('Z'),
-                  homeE = always_home_all || parser.seen('E');
+                  homeZ = always_home_all || parser.seen('Z');
     #endif
 
-    const bool home_all = (!homeX && !homeY && !homeZ && !homeE) || (homeX && homeY && homeZ);
+    const bool home_all = (!homeX && !homeY && !homeZ) || (homeX && homeY && homeZ);
 
     set_destination_to_current();
 
@@ -215,22 +213,7 @@
     #endif
 
     sync_plan_position();
-
-    #if ENABLED(NPR2)
-      if ((home_all) || (parser.seen('E'))) {
-        set_destination_to_current();
-        destination[E_AXIS] = -200;
-        tools.active_driver = tools.active_extruder = 1;
-        planner.buffer_line_kinematic(destination, COLOR_HOMERATE, tools.active_extruder);
-        stepper.synchronize();
-        printer.old_color = 99;
-        tools.active_driver = tools.active_extruder = 0;
-        current_position[E_AXIS] = 0;
-        sync_plan_position_e();
-      }
-    #endif
-
-    printer.setNotHoming();
+    endstops.setNotHoming();
 
     if (come_back) {
       feedrate_mm_s = homing_feedrate_mm_s[X_AXIS];
@@ -389,16 +372,6 @@
       if (axis == Z_AXIS) stepper.set_homing_flag(true);
     #endif
 
-    // Disable stealthChop if used. Enable diag1 pin on driver.
-    #if ENABLED(SENSORLESS_HOMING)
-      #if ENABLED(X_IS_TMC2130)
-        if (axis == X_AXIS) tmc_sensorless_homing(stepperX);
-      #endif
-      #if ENABLED(Y_IS_TMC2130)
-        if (axis == Y_AXIS) tmc_sensorless_homing(stepperY);
-      #endif
-    #endif
-
     // Fast move towards endstop until triggered
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (printer.debugLeveling()) SERIAL_EM("Home 1 Fast:");
@@ -458,19 +431,15 @@
 
     destination[axis] = current_position[axis];
 
-    // Re-enable stealthChop if used. Disable diag1 pin on driver.
-    #if ENABLED(SENSORLESS_HOMING)
-      #if ENABLED(X_IS_TMC2130)
-        if (axis == X_AXIS) tmc_sensorless_homing(stepperX, false);
-      #endif
-      #if ENABLED(Y_IS_TMC2130)
-        if (axis == Y_AXIS) tmc_sensorless_homing(stepperY, false);
-      #endif
-    #endif
-
     // Put away the Z probe
     #if HOMING_Z_WITH_PROBE
       if (axis == Z_AXIS && STOW_PROBE()) return;
+    #endif
+
+    // Clear retracted status if homing the Z axis
+    #if ENABLED(FWRETRACT)
+      if (axis == Z_AXIS)
+        for (uint8_t i = 0; i < EXTRUDERS; i++) fwretract.retracted[i] = false;
     #endif
 
     #if ENABLED(DEBUG_LEVELING_FEATURE)
@@ -490,9 +459,9 @@
   bool Core_Mechanics::prepare_move_to_destination_cartesian() {
 
     #if ENABLED(LASER) && ENABLED(LASER_FIRE_E)
-      if (current_position[E_AXIS] != destination[E_AXIS] && ((current_position[X_AXIS] != destination [X_AXIS]) || (current_position[Y_AXIS] != destination [Y_AXIS])))
+      if (current_position[E_AXIS] < destination[E_AXIS] && ((current_position[X_AXIS] != destination [X_AXIS]) || (current_position[Y_AXIS] != destination [Y_AXIS])))
         laser.status = LASER_ON;
-      if (current_position[E_AXIS] == destination[E_AXIS])
+      else
         laser.status = LASER_OFF;
     #endif
 
@@ -541,9 +510,20 @@
                   mlratio = mlx > mly ? mly / mlx : mlx / mly,
                   fr_mm_s = min(homing_feedrate_mm_s[X_AXIS], homing_feedrate_mm_s[Y_AXIS]) * SQRT(sq(mlratio) + 1.0);
 
+      #if ENABLED(SENSORLESS_HOMING)
+        sensorless_homing_per_axis(X_AXIS);
+        sensorless_homing_per_axis(Y_AXIS);
+      #endif
+
       do_blocking_move_to_xy(1.5 * mlx * x_axis_home_dir, 1.5 * mly * home_dir[Y_AXIS], fr_mm_s);
       endstops.hit_on_purpose(); // clear endstop hit flags
       current_position[X_AXIS] = current_position[Y_AXIS] = 0.0;
+
+      #if ENABLED(SENSORLESS_HOMING)
+        sensorless_homing_per_axis(X_AXIS, false);
+        sensorless_homing_per_axis(Y_AXIS, false);
+        printer.safe_delay(500);
+      #endif
     }
 
   #endif // QUICK_HOME
@@ -553,7 +533,7 @@
     void Core_Mechanics::home_z_safely() {
 
       // Disallow Z homing if X or Y are unknown
-      if (!printer.isXKnownPosition() || !printer.isYKnownPosition()) {
+      if (!printer.isXHomed() || !printer.isYHomed()) {
         LCD_MESSAGEPGM(MSG_ERR_Z_HOMING);
         SERIAL_LM(ECHO, MSG_ERR_Z_HOMING);
         return;
@@ -588,6 +568,10 @@
           active_hotend_parked = false;
         #endif
 
+        #if ENABLED(SENSORLESS_HOMING)
+          printer.safe_delay(500);
+        #endif
+
         do_blocking_move_to_xy(destination[X_AXIS], destination[Y_AXIS]);
         homeaxis(Z_AXIS);
       }
@@ -608,7 +592,7 @@
     void Core_Mechanics::double_home_z() {
 
       // Disallow Z homing if X or Y are unknown
-      if (!printer.isXKnownPosition() || !printer.isYKnownPosition()) {
+      if (!printer.isXHomed() || !printer.isYHomed()) {
         LCD_MESSAGEPGM(MSG_ERR_Z_HOMING);
         SERIAL_LM(ECHO, MSG_ERR_Z_HOMING);
         return;
@@ -675,7 +659,6 @@
       }
     #endif
 
-    printer.setAxisKnownPosition(axis, true);
     printer.setAxisHomed(axis, true);
 
     #if ENABLED(WORKSPACE_OFFSETS)
@@ -735,5 +718,47 @@
     }
 
   #endif
+
+  #if ENABLED(SENSORLESS_HOMING)
+
+    /**
+     * Set sensorless homing if the axis has it, accounting for Core Kinematics.
+     */
+    void Core_Mechanics::sensorless_homing_per_axis(const AxisEnum axis, const bool enable/*=true*/) {
+      switch (axis) {
+        #if X_SENSORLESS
+          case X_AXIS:
+            tmc_sensorless_homing(stepperX, enable);
+            #if CORE_IS_XY && Y_SENSORLESS
+              tmc_sensorless_homing(stepperY, enable);
+            #elif CORE_IS_XZ && Z_SENSORLESS
+              tmc_sensorless_homing(stepperZ, enable);
+            #endif
+            break;
+        #endif
+        #if Y_SENSORLESS
+          case Y_AXIS:
+            tmc_sensorless_homing(stepperY, enable);
+            #if CORE_IS_XY && X_SENSORLESS
+              tmc_sensorless_homing(stepperX, enable);
+            #elif CORE_IS_YZ && Z_SENSORLESS
+              tmc_sensorless_homing(stepperZ, enable);
+            #endif
+            break;
+        #endif
+        #if Z_SENSORLESS
+          case Z_AXIS:
+            tmc_sensorless_homing(stepperZ, enable);
+            #if CORE_IS_XZ && X_SENSORLESS
+              tmc_sensorless_homing(stepperX, enable);
+            #elif CORE_IS_YZ && Y_SENSORLESS
+              tmc_sensorless_homing(stepperY, enable);
+            #endif
+            break;
+        #endif
+      }
+    }
+
+  #endif // SENSORLESS_HOMING
 
 #endif // IS_CORE

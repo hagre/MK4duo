@@ -51,24 +51,11 @@ class Temperature {
       static float    redundant_temperature;
     #endif
 
-    #if (PIDTEMP) && ENABLED(PID_ADD_EXTRUSION_RATE)
-        static int lpq_len;
-    #endif
-
     #if HAS_EXTRUDERS && ENABLED(PREVENT_COLD_EXTRUSION)
       static int16_t extrude_min_temp;
     #endif
 
   private: /** Private Parameters */
-
-    static uint8_t cycle_1_second;
-
-    #if ENABLED(PID_ADD_EXTRUSION_RATE)
-      static float  cTerm[HOTENDS];
-      static long   last_e_position,
-                    lpq[LPQ_MAX_LEN];
-      static int    lpq_ptr;
-    #endif
 
     static uint8_t pid_pointer;
 
@@ -106,11 +93,6 @@ class Temperature {
      * Perform auto-tuning for hotend, bed, chamber or cooler in response to M303
      */
     static void PID_autotune(Heater *act, const float temp, const uint8_t ncycles, const uint8_t method, const bool storeValues=false);
-
-    /**
-     * Update the temp manager when PID values change
-     */
-    static void updatePID();
 
     /**
      * Switch off all heaters, set all target temperatures to 0
@@ -154,8 +136,6 @@ class Temperature {
 
   private:
 
-    static void updateTemperaturesFromRawValues();
-
     #if HAS_FILAMENT_SENSOR
       static float analog2widthFil(); // Convert raw Filament Width to millimeters
     #endif
@@ -163,8 +143,6 @@ class Temperature {
     #if HAS_MCU_TEMPERATURE
       static float analog2tempMCU(const int raw);
     #endif
-
-    static uint8_t get_pid_output(const uint8_t h);
 
     static void _temp_error(const uint8_t h, const char * const serial_msg, const char * const lcd_msg);
     static void min_temp_error(const uint8_t h);

@@ -363,8 +363,6 @@ class Mechanics {
 
     float get_homing_bump_feedrate(const AxisEnum axis);
 
-  private: /** Private Function */
-
 };
 
 #if IS_CARTESIAN

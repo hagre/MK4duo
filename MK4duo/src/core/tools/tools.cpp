@@ -57,6 +57,10 @@
             Tools::encErrorSteps[EXTRUDERS]           = ARRAY_BY_EXTRUDERS(ENC_ERROR_STEPS);
   #endif
 
+  #if ENABLED(PID_ADD_EXTRUSION_RATE)
+    int Tools::lpq_len = 20;
+  #endif
+
   void Tools::change(const uint8_t tmp_extruder, const float fr_mm_s/*=0.0*/, bool no_move/*=false*/) {
 
     #if ENABLED(COLOR_MIXING_EXTRUDER) && MIXING_VIRTUAL_TOOLS > 1
@@ -105,7 +109,7 @@
 
             const float xhome = mechanics.x_home_pos(active_extruder);
             if (mechanics.dual_x_carriage_mode == DXC_AUTO_PARK_MODE
-                && printer.IsRunning()
+                && printer.isRunning()
                 && (mechanics.delayed_move_time || mechanics.current_position[X_AXIS] != xhome)
             ) {
               float raised_z = mechanics.current_position[Z_AXIS] + TOOLCHANGE_PARK_ZLIFT;
@@ -198,13 +202,21 @@
 
             #if HAS_DONDOLO
               // <0 if the new nozzle is higher, >0 if lower. A bigger raise when lower.
-              float z_diff = hotend_offset[Z_AXIS][active_extruder] - hotend_offset[Z_AXIS][tmp_extruder],
-                    z_raise = 0.3 + (z_diff > 0.0 ? z_diff : 0.0);
+              float z_diff  = hotend_offset[Z_AXIS][active_extruder] - hotend_offset[Z_AXIS][tmp_extruder],
+                    z_raise = 1.3 + (z_diff > 0.0 ? z_diff : 0.0),
+                    z_curr  = mechanics.current_position[Z_AXIS];
 
-              // Always raise by some amount
+               // Always raise by some amount (destination copied from current_position earlier)
               mechanics.current_position[Z_AXIS] += z_raise;
               planner.buffer_line_kinematic(mechanics.current_position, mechanics.max_feedrate_mm_s[Z_AXIS], active_extruder);
+              stepper.synchronize();
               move_extruder_servo(tmp_extruder);
+              printer.safe_delay(200);
+
+              // Move to the "old position" (move the extruder into place)
+              mechanics.destination[Z_AXIS] += z_diff;  // Include the Z restore with the "move back"
+              planner.buffer_line_kinematic(mechanics.destination, mechanics.max_feedrate_mm_s[Z_AXIS], active_extruder);
+              mechanics.destination[Z_AXIS] = mechanics.current_position[Z_AXIS] = z_curr;
             #endif
 
             /**
@@ -317,23 +329,13 @@
           // Tell the planner the new "current position"
           mechanics.sync_plan_position();
 
-          // Move to the "old position" (move the extruder into place)
-          #if HAS_DONDOLO
-            mechanics.destination[Z_AXIS] += z_diff;  // Include the Z restore with the "move back"
-          #endif
-          if (!no_move && printer.IsRunning()) {
+          if (!no_move && printer.isRunning()) {
             #if ENABLED(DEBUG_LEVELING_FEATURE)
               if (printer.debugLeveling()) DEBUG_POS("Move back", mechanics.destination);
             #endif
             // Move back to the original (or tweaked) position
             mechanics.do_blocking_move_to(mechanics.destination[X_AXIS], mechanics.destination[Y_AXIS], mechanics.destination[Z_AXIS]);
           }
-          #if HAS_DONDOLO
-            else {
-              // Move back down, if needed. (Including when the new tool is higher.)
-              mechanics.do_blocking_move_to_z(mechanics.destination[Z_AXIS], mechanics.max_feedrate_mm_s[Z_AXIS]);
-            }
-          #endif
         } // (tmp_extruder != active_extruder)
 
         stepper.synchronize();
@@ -395,34 +397,7 @@
 
   #endif // ENABLED(VOLUMETRIC_EXTRUSION)
 
-  #if ENABLED(NPR2)
-
-    void Tools::MK_multi_tool_change(const uint8_t e) {
-
-      const float color_position[] = COLOR_STEP,
-                  color_step_moltiplicator = (DRIVER_MICROSTEP / MOTOR_ANGLE) * CARTER_MOLTIPLICATOR;
-
-      if (e != old_color) {
-        long csteps;
-        stepper.synchronize(); // Finish all movement
-
-        if (old_color == 99)
-          csteps = (color_position[e]) * color_step_moltiplicator;
-        else
-          csteps = (color_position[e] - color_position[old_color]) * color_step_moltiplicator;
-
-        if (csteps < 0) stepper.colorstep(-csteps, false);
-        if (csteps > 0) stepper.colorstep(csteps, true);
-
-        // Set the new active extruder
-        previous_extruder = active_extruder;
-        old_color = active_extruder = e;
-        active_driver = 0;
-        SERIAL_EMV(MSG_ACTIVE_COLOR, (int)active_extruder);
-      }
-    }
-
-  #elif ENABLED(MKSE6)
+  #if ENABLED(MKSE6)
 
     void Tools::MK_multi_tool_change(const uint8_t e) {
 

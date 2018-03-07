@@ -33,7 +33,7 @@
 
   Delta_Mechanics mechanics;
 
-  void Delta_Mechanics::Init() {
+  void Delta_Mechanics::init() {
     delta_diagonal_rod              = (float)DELTA_DIAGONAL_ROD;
     delta_radius                    = (float)DELTA_RADIUS;
     delta_segments_per_second       = (float)DELTA_SEGMENTS_PER_SECOND;
@@ -127,13 +127,13 @@
       }
 
       // Fail if attempting move outside printable radius
-      if (!position_is_reachable(destination[X_AXIS], destination[Y_AXIS])) return true;
+      if (endstops.isSoftEndstop() && !position_is_reachable(destination[X_AXIS], destination[Y_AXIS])) return true;
 
       // Get the linear distance in XYZ
       float cartesian_mm = SQRT(sq(difference[X_AXIS]) + sq(difference[Y_AXIS]) + sq(difference[Z_AXIS]));
 
       // If the move is very short, check the E move distance
-      if (UNEAR_ZERO(cartesian_mm)) cartesian_mm = abs(difference[E_AXIS]);
+      if (UNEAR_ZERO(cartesian_mm)) cartesian_mm = FABS(difference[E_AXIS]);
 
       // No E move either? Game over.
       if (UNEAR_ZERO(cartesian_mm)) return true;
@@ -150,6 +150,7 @@
 
       // The approximate length of each segment
       const float inv_segments = 1.0 / float(segments),
+                  cartesian_segment_mm = cartesian_mm * inv_segments,
                   segment_distance[XYZE] = {
                     difference[X_AXIS] * inv_segments,
                     difference[Y_AXIS] * inv_segments,
@@ -160,19 +161,16 @@
       //SERIAL_MV("mm=", cartesian_mm);
       //SERIAL_MV(" seconds=", seconds);
       //SERIAL_EMV(" segments=", segments);
+      //SERIAL_EMV(" segment_mm=", cartesian_segment_mm);
 
       // Get the current position as starting point
       float raw[XYZE];
       COPY_ARRAY(raw, current_position);
 
-      // Drop one segment so the last move is to the exact target.
-      // If there's only 1 segment, loops will be skipped entirely.
-      --segments;
-
       // Calculate and execute the segments
-      for (uint16_t s = segments + 1; --s;) {
+      while (--segments) {
 
-        if (HAL::execute_100ms) printer.idle();
+        printer.check_periodical_actions();
 
         LOOP_XYZE(i) raw[i] += segment_distance[i];
         Transform(raw);
@@ -187,11 +185,11 @@
           }
         #endif
 
-        planner.buffer_line(delta[A_AXIS], delta[B_AXIS], delta[C_AXIS], raw[E_AXIS], _feedrate_mm_s, tools.active_extruder);
+        planner.buffer_line(delta[A_AXIS], delta[B_AXIS], delta[C_AXIS], raw[E_AXIS], _feedrate_mm_s, tools.active_extruder, cartesian_segment_mm);
 
       }
 
-      planner.buffer_line_kinematic(destination, _feedrate_mm_s, tools.active_extruder);
+      planner.buffer_line_kinematic(destination, _feedrate_mm_s, tools.active_extruder, cartesian_segment_mm);
 
       return false; // caller will update current_position
     }
@@ -493,6 +491,12 @@
       do_homing_move(axis, delta_endstop_adj[axis] - 0.1);
     }
 
+    // Clear retracted status if homing the Z axis
+    #if ENABLED(FWRETRACT)
+      if (axis == Z_AXIS)
+        for (uint8_t i = 0; i < EXTRUDERS; i++) fwretract.retracted[i] = false;
+    #endif
+
     #if ENABLED(DEBUG_LEVELING_FEATURE)
       if (printer.debugLeveling()) {
         SERIAL_MV("<<< homeaxis(", axis_codes[axis]);
@@ -504,7 +508,7 @@
   /**
    * Home Delta
    */
-  bool Delta_Mechanics::Home(const bool always_home_all) {
+  bool Delta_Mechanics::home(const bool always_home_all) {
 
     UNUSED(always_home_all);
 
@@ -524,7 +528,7 @@
     #endif
 
     #if HAS_POWER_SWITCH
-      if (!powerManager.powersupply_on) powerManager.power_on(); // Power On if power is off
+      if (!powerManager.lastPowerOn) powerManager.power_on(); // Power On if power is off
     #endif
 
     // Wait for planner moves to finish!
@@ -554,9 +558,9 @@
 
     printer.setup_for_endstop_or_probe_move();
     #if ENABLED(DEBUG_LEVELING_FEATURE)
-      if (printer.debugLeveling()) SERIAL_EM("> printer.setEndstopEnabled(true)");
+      if (printer.debugLeveling()) SERIAL_EM("> endstops.setEnabled(true)");
     #endif
-    printer.setEndstopEnabled(true); // Enable endstops for next homing move
+    endstops.setEnabled(true); // Enable endstops for next homing move
 
     bool come_back = parser.boolval('B');
     float lastpos[NUM_AXIS];
@@ -570,6 +574,13 @@
       if (printer.debugLeveling()) DEBUG_POS(">>> home_delta", current_position);
     #endif
 
+    // Disable stealthChop if used. Enable diag1 pin on driver.
+    #if ENABLED(SENSORLESS_HOMING)
+      sensorless_homing_per_axis(A_AXIS);
+      sensorless_homing_per_axis(B_AXIS);
+      sensorless_homing_per_axis(C_AXIS);
+    #endif
+
     // Init the current position of all carriages to 0,0,0
     ZERO(current_position);
     set_position_mm(current_position[A_AXIS], current_position[B_AXIS], current_position[C_AXIS], current_position[E_AXIS]);
@@ -579,6 +590,13 @@
     feedrate_mm_s = homing_feedrate_mm_s[X_AXIS];
     line_to_current_position();
     stepper.synchronize();
+
+    // Re-enable stealthChop if used. Disable diag1 pin on driver.
+    #if ENABLED(SENSORLESS_HOMING)
+      sensorless_homing_per_axis(A_AXIS, false);
+      sensorless_homing_per_axis(B_AXIS, false);
+      sensorless_homing_per_axis(C_AXIS, false);
+    #endif
 
     // If an endstop was not hit, then damage can occur if homing is continued.
     // This can occur if the delta height is
@@ -611,21 +629,7 @@
       if (printer.debugLeveling()) DEBUG_POS("<<< home_delta", current_position);
     #endif
 
-    #if ENABLED(NPR2)
-      if ((home_all) || (parser.seen('E'))) {
-        set_destination_to_current();
-        destination[E_AXIS] = -200;
-        tools.active_driver = tools.active_extruder = 1;
-        planner.buffer_line_kinematic(destination, COLOR_HOMERATE, tools.active_extruder);
-        stepper.synchronize();
-        printer.old_color = 99;
-        tools.active_driver = tools.active_extruder = 0;
-        current_position[E_AXIS] = 0;
-        sync_plan_position_e();
-      }
-    #endif
-
-    printer.setNotHoming();
+    endstops.setNotHoming();
 
     #if ENABLED(DELTA_HOME_TO_SAFE_ZONE)
       // move to a height where we can use the full xy-area
@@ -676,7 +680,6 @@
       }
     #endif
 
-    printer.setAxisKnownPosition(axis, true);
     printer.setAxisHomed(axis, true);
 
     current_position[axis] = (axis == C_AXIS ? delta_height : 0.0);
@@ -728,6 +731,7 @@
       SERIAL_CHR(axis_codes[i]);
       SERIAL_CHR(':');
       SERIAL_VAL(stepper.position((AxisEnum)i));
+      SERIAL_MSG("    ");
     }
     SERIAL_EOL();
 
@@ -814,5 +818,20 @@
     }
 
   #endif
+
+  #if ENABLED(SENSORLESS_HOMING)
+
+    /**
+     * Set sensorless homing if the axis has it.
+     */
+    void Delta_Mechanics::sensorless_homing_per_axis(const AxisEnum axis, const bool enable/*=true*/) {
+      switch (axis) {
+        case X_AXIS: tmc_sensorless_homing(stepperX, enable); break;
+        case Y_AXIS: tmc_sensorless_homing(stepperY, enable); break;
+        case Z_AXIS: tmc_sensorless_homing(stepperZ, enable); break;
+      }
+    }
+
+  #endif // SENSORLESS_HOMING
 
 #endif // IS_DELTA

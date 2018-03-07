@@ -32,9 +32,9 @@
 // TRIGGERED_WHEN_STOWED_TEST can easily be extended to servo probes, ... if needed.
 #if ENABLED(PROBE_IS_TRIGGERED_WHEN_STOWED_TEST)
   #if HAS_Z_PROBE_PIN
-    #define _TRIGGERED_WHEN_STOWED_TEST (READ(Z_PROBE_PIN) != Z_PROBE_ENDSTOP_INVERTING)
+    #define _TRIGGERED_WHEN_STOWED_TEST (READ(Z_PROBE_PIN) != endstops.isLogic(Z_PROBE))
   #else
-    #define _TRIGGERED_WHEN_STOWED_TEST (READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING)
+    #define _TRIGGERED_WHEN_STOWED_TEST (READ(Z_MIN_PIN) != endstops.isLogic(Z_MIN))
   #endif
 #endif
 
@@ -86,7 +86,7 @@ class Probe {
     #endif
 
     #if QUIET_PROBING
-      static void probing_pause(const bool p);
+      static void probing_pause(const bool onoff);
     #endif
 
     #if ENABLED(BLTOUCH)
@@ -132,25 +132,5 @@ class Probe {
 };
 
 extern Probe probe;
-
-#if IS_DELTA
-  // Check for this in the code instead
-  #define MIN_PROBE_X -(mechanics.delta_print_radius)
-  #define MAX_PROBE_X  (mechanics.delta_print_radius)
-  #define MIN_PROBE_Y -(mechanics.delta_print_radius)
-  #define MAX_PROBE_Y  (mechanics.delta_print_radius)
-#elif IS_SCARA
-    #define SCARA_PRINTABLE_RADIUS (SCARA_LINKAGE_1 + SCARA_LINKAGE_2)
-    #define MIN_PROBE_X (X_CENTER - SCARA_PRINTABLE_RADIUS)
-    #define MAX_PROBE_X (X_CENTER + SCARA_PRINTABLE_RADIUS)
-    #define MIN_PROBE_Y (Y_CENTER - SCARA_PRINTABLE_RADIUS)
-    #define MAX_PROBE_Y (Y_CENTER + SCARA_PRINTABLE_RADIUS)
-#else
-  // Boundaries for probing based on set limits
-  #define MIN_PROBE_X (max(X_MIN_POS, X_MIN_POS + probe.offset[X_AXIS]))
-  #define MAX_PROBE_X (min(X_MAX_POS, X_MAX_POS + probe.offset[X_AXIS]))
-  #define MIN_PROBE_Y (max(Y_MIN_POS, Y_MIN_POS + probe.offset[Y_AXIS]))
-  #define MAX_PROBE_Y (min(Y_MAX_POS, Y_MAX_POS + probe.offset[Y_AXIS]))
-#endif
 
 #endif /* _PROBE_H_ */

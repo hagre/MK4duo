@@ -358,10 +358,6 @@
 
   void CardReader::closeFile(const bool store_position/*=false*/) {
 
-    gcode_file.sync();
-    gcode_file.close();
-    saving = false;
-
     if (store_position) {
 
       SERIAL_EM("Save restart.gcode");
@@ -377,6 +373,8 @@
       uint32_t saved_sdpos = 0;
 
       float saved_pos[XYZE] = { 0.0, 0.0, 0.0, 0.0 };
+
+      uint8_t saved_active_extruder = 0;
 
       const char* restart_name_File = "restart.gcode";
 
@@ -403,11 +401,11 @@
         saved_sdpos -= planner.command_in_planner_len();
         snprintf(buffer_SDpos, sizeof buffer_SDpos, "%lu", saved_sdpos);
 
-        // Clear all movement in planned
+        // Clear all movement in planned and abort printing
         stepper.kill_current_block();
-        stepper.quickstop_stepper();
         planner.abort();
         COPY_ARRAY(saved_pos, mechanics.current_position);
+        saved_active_extruder = tools.active_extruder;
 
         commands.clear_queue(); // Empty command queue
         sdprinting = false;
@@ -452,6 +450,10 @@
       dtostrf(saved_pos[E_AXIS], 1, 3, &buffer_G92_E[strlen(buffer_G92_E)]);
       strcat(buffer_G92_E, "\n");
 
+      gcode_file.sync();
+      gcode_file.close();
+      saving = false;
+
       if (!restart_file.exists(restart_name_File)) {
         restart_file.createContiguous(&workDir, restart_name_File, 1);
         restart_file.close();
@@ -481,7 +483,7 @@
       #endif
 
       char CurrHotend[10];
-      sprintf(CurrHotend, "T%i\n", tools.active_extruder);
+      sprintf(CurrHotend, "T%i\n", saved_active_extruder);
       restart_file.write(CurrHotend);
 
       for (uint8_t h = 0; h < HOTENDS; h++) {
@@ -516,6 +518,11 @@
       saving = false;
       sdprinting = false;
 
+    }
+    else {
+      gcode_file.sync();
+      gcode_file.close();
+      saving = false;
     }
   }
 
@@ -1199,6 +1206,7 @@
 
         settings_file.sync();
         settings_file.close();
+        SERIAL_LM(ECHO, " Statistics stored");
       }
 
       setlast();
@@ -1265,6 +1273,7 @@
       }
 
       print_job_counter.loaded = true;
+      SERIAL_LM(ECHO, " Statistics retrived");
 
       setlast();
     }

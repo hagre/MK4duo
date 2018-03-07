@@ -496,11 +496,11 @@
 
   #define START_MENU() \
     start_menu(true, true); \
-    uint32_t encoderLine; \
+    uint16_t encoderLine; \
     uint8_t _lcdLineNr = 0; \
     do { \
       _lcdLineNr = 0; \
-      LcdPos.getValue(&encoderLine); \
+      encoderLine = LcdPos.getValue(); \
       HAL::delayMilliseconds(200)
 
   #define MENU_ITEM(TYPE, LABEL, ...) \
@@ -516,12 +516,14 @@
 
   #define MENU_BACK(LABEL) MENU_ITEM(back, LABEL)
 
-  #define STATIC_ITEM(LABEL) \
+  #define STATIC_ITEM_P(LABEL) \
       if (lcdDrawUpdate) { \
-        lcd_row_list[_lcdLineNr]->setText(PSTR(LABEL)); \
+        lcd_row_list[_lcdLineNr]->setText(LABEL); \
         LcdMin.setValue(_lcdLineNr + 1); \
       } \
       ++_lcdLineNr \
+
+  #define STATIC_ITEM(LABEL) STATIC_ITEM_P(PSTR(LABEL))
 
   #define END_MENU() \
       printer.idle(); \
@@ -637,9 +639,7 @@
 
     void sdlistPopCallback(void *ptr) {
       UNUSED(ptr);
-      uint32_t number = 0;
-      sdlist.getValue(&number);
-      number = slidermaxval - number;
+      uint16_t number = slidermaxval - sdlist.getValue();
       setrowsdcard(number);
     }
 
@@ -706,53 +706,48 @@
 
   #if ENABLED(ADVANCED_PAUSE_FEATURE)
 
-    void lcd_advanced_pause_toocold_menu() {
-      START_MENU();
-      STATIC_ITEM(MSG_HEATING_FAILED_LCD);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_MINTEMP STRINGIFY(EXTRUDE_MINTEMP) ".");
-      MENU_BACK(MSG_BACK);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_NOZZLE);
-      END_MENU();
+    static AdvancedPauseMode advanced_pause_mode = ADVANCED_PAUSE_MODE_PAUSE_PRINT;
+
+    static const char* advanced_pause_header() {
+      switch (advanced_pause_mode) {
+        case ADVANCED_PAUSE_MODE_LOAD_FILAMENT:
+          return PSTR(MSG_FILAMENT_CHANGE_HEADER_LOAD);
+        case ADVANCED_PAUSE_MODE_UNLOAD_FILAMENT:
+          return PSTR(MSG_FILAMENT_CHANGE_HEADER_UNLOAD);
+        default: break;
+      }
+      return PSTR(MSG_FILAMENT_CHANGE_HEADER_PAUSE);
     }
 
-    static void lcd_filament_change_resume_print() {
+    static void lcd_advanced_pause_resume_print() {
       advanced_pause_menu_response = ADVANCED_PAUSE_RESPONSE_RESUME_PRINT;
       Pprinter.show();
     }
 
-    static void lcd_filament_change_extrude_more() {
+    static void lcd_advanced_pause_extrude_more() {
       advanced_pause_menu_response = ADVANCED_PAUSE_RESPONSE_EXTRUDE_MORE;
     }
 
     static void lcd_advanced_pause_option_menu() {
       START_MENU();
       STATIC_ITEM(MSG_FILAMENT_CHANGE_OPTION_HEADER);
-      MENU_ITEM(function, MSG_FILAMENT_CHANGE_OPTION_RESUME, lcd_filament_change_resume_print);
-      MENU_ITEM(function, MSG_FILAMENT_CHANGE_OPTION_EXTRUDE, lcd_filament_change_extrude_more);
+      MENU_ITEM(function, MSG_FILAMENT_CHANGE_OPTION_RESUME, lcd_advanced_pause_resume_print);
+      MENU_ITEM(function, MSG_FILAMENT_CHANGE_OPTION_PURGE, lcd_advanced_pause_extrude_more);
       END_MENU();
     }
 
     static void lcd_advanced_pause_init_message() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_INIT_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_INIT_2);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_INIT_3);
       END_SCREEN();
     }
 
-    static void lcd_advanced_pause_cool_message() {
-      START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_COOL_1);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_COOL_2);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_COOL_3);
-      END_SCREEN();
-    }
-
     static void lcd_advanced_pause_unload_message() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_UNLOAD_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_UNLOAD_2);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_UNLOAD_3);
@@ -761,7 +756,7 @@
 
     static void lcd_advanced_pause_wait_for_nozzles_to_heat() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_HEATING_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_HEATING_2);
       END_SCREEN();
@@ -769,7 +764,7 @@
 
     static void lcd_advanced_pause_heat_nozzle() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_HEAT_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_HEAT_2);
       END_SCREEN();
@@ -777,7 +772,7 @@
 
     static void lcd_advanced_pause_printer_off() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_ZZZ_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_ZZZ_2);
       END_SCREEN();
@@ -785,7 +780,7 @@
 
     static void lcd_advanced_pause_insert_message() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_INSERT_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_INSERT_2);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_INSERT_3);
@@ -794,42 +789,45 @@
 
     static void lcd_advanced_pause_load_message() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_LOAD_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_LOAD_2);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_LOAD_3);
       END_SCREEN();
     }
 
-    static void lcd_advanced_pause_extrude_message() {
+    static void lcd_advanced_pause_purge_message() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_EXTRUDE_1);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_EXTRUDE_2);
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_EXTRUDE_3);
+      STATIC_ITEM_P(advanced_pause_header());
+      STATIC_ITEM(MSG_FILAMENT_CHANGE_PURGE_1);
+      STATIC_ITEM(MSG_FILAMENT_CHANGE_PURGE_2);
+      STATIC_ITEM(MSG_FILAMENT_CHANGE_PURGE_3);
       END_SCREEN();
     }
 
     static void lcd_advanced_pause_resume_message() {
       START_SCREEN();
-      STATIC_ITEM(MSG_FILAMENT_CHANGE_HEADER);
+      STATIC_ITEM_P(advanced_pause_header());
       STATIC_ITEM(MSG_FILAMENT_CHANGE_RESUME_1);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_RESUME_2);
       STATIC_ITEM(MSG_FILAMENT_CHANGE_RESUME_3);
       END_SCREEN();
     }
 
-    void lcd_advanced_pause_show_message(AdvancedPauseMessage message) {
+    void lcd_advanced_pause_show_message(
+      const AdvancedPauseMessage message,
+      const AdvancedPauseMode mode/*=ADVANCED_PAUSE_MODE_PAUSE_PRINT*/,
+      const uint8_t extruder/*=active_extruder*/
+    ) {
 
+      UNUSED(extruder);
       static AdvancedPauseMessage old_message;
+      advanced_pause_mode = mode;
 
       if (old_message != message) {
         switch (message) {
           case ADVANCED_PAUSE_MESSAGE_INIT:
             lcd_advanced_pause_init_message();
-            break;
-          case ADVANCED_PAUSE_MESSAGE_COOLDOWN:
-            lcd_advanced_pause_cool_message();
             break;
           case ADVANCED_PAUSE_MESSAGE_UNLOAD:
             lcd_advanced_pause_unload_message();
@@ -840,8 +838,11 @@
           case ADVANCED_PAUSE_MESSAGE_LOAD:
             lcd_advanced_pause_load_message();
             break;
-          case ADVANCED_PAUSE_MESSAGE_EXTRUDE:
-            lcd_advanced_pause_extrude_message();
+          case ADVANCED_PAUSE_MESSAGE_PURGE:
+            lcd_advanced_pause_purge_message();
+            break;
+          case ADVANCED_PAUSE_MESSAGE_RESUME:
+            lcd_advanced_pause_resume_message();
             break;
           case ADVANCED_PAUSE_MESSAGE_CLICK_TO_HEAT_NOZZLE:
             lcd_advanced_pause_heat_nozzle();
@@ -856,10 +857,8 @@
             advanced_pause_menu_response = ADVANCED_PAUSE_RESPONSE_WAIT_FOR;
             lcd_advanced_pause_option_menu();
             break;
-          case ADVANCED_PAUSE_MESSAGE_RESUME:
-            lcd_advanced_pause_resume_message();
-            break;
           case ADVANCED_PAUSE_MESSAGE_STATUS:
+          default:
             Pprinter.show();
             break;
         }
@@ -875,8 +874,7 @@
       ZERO(buffer);
 
       String temp = "M522 ";
-      uint32_t Rfid_read = 0;
-      RfidR.getValue(&Rfid_read);
+      uint16_t Rfid_read = RfidR.getValue();
 
       if (ptr == &Rfid0)
         temp += "T0 ";
@@ -950,10 +948,10 @@
       Pprobe.show();
       ProbeMsg.setText(PSTR(MSG_MOVE_Z));
 
-      KEEPALIVE_STATE(PAUSED_FOR_USER);
+      printer.keepalive(PausedforUser);
       printer.setWaitForUser(true);
       while (printer.isWaitForUser()) printer.idle();
-      KEEPALIVE_STATE(IN_HANDLER);
+      printer.keepalive(InHandler);
 
       Pprinter.show();
       return mechanics.current_position[Z_AXIS];
@@ -969,11 +967,8 @@
   void sethotPopCallback(void *ptr) {
     UNUSED(ptr);
 
-    uint32_t  Heater,
-              temperature;
-
-    theater.getValue(&Heater);
-    tset.getValue(&temperature);
+    uint16_t  Heater      = theater.getValue(),
+              temperature = tset.getValue();
 
     #if HAS_TEMP_BED
       if (Heater == 2)
@@ -1021,12 +1016,10 @@
 
     #if EXTRUDERS > 1
       const uint8_t temp_extruder = tools.active_extruder;
-      uint32_t new_extruder;
-      char temp[5] = {0};
+      char temp[5] = { 0 };
 
       ZERO(buffer);
-      ext.getValue(&new_extruder);
-      itoa(new_extruder, temp, 2);
+      itoa(ext.getValue(), temp, 2);
       strcat(buffer, "T");
       strcat(buffer, temp);
       commands.enqueue_and_echo(buffer);
@@ -1073,9 +1066,7 @@
   void YesPopCallback(void *ptr) {
     UNUSED(ptr);
 
-    static uint32_t icon = 0;
-    Vyes.getValue(&icon);
-    switch(icon) {
+    switch(Vyes.getValue()) {
       #if HAS_SDSUPPORT
         case 1: // Stop Print
           card.stopSDPrint();
@@ -1112,6 +1103,12 @@
 
       if (strstr(buffer, "3224")) {       // Model 2.4" or 2.8" Normal or Enhanced
         SERIAL_MSG(" 2.4");
+        #if ENABLED(NEXTION_GFX)
+          gfx.set_position(1, 24, 250, 155);
+        #endif
+      }
+      else if (strstr(buffer, "4024")) {  // Model 3.2" Normal or Enhanced
+        SERIAL_MSG(" 3.2");
         #if ENABLED(NEXTION_GFX)
           gfx.set_position(1, 24, 250, 155);
         #endif
@@ -1196,7 +1193,9 @@
     }
   }
 
-  static void degtoLCD(const uint8_t h, const float temp) {
+  static void degtoLCD(const uint8_t h, float temp) {
+
+    NOMORE(temp, 999);
 
     heater_list0[h]->setValue(temp);
 
@@ -1402,9 +1401,7 @@
         coordtoLCD();
         break;
       case 6:
-        static uint32_t temp_feedrate = 0;
-        VSpeed.getValue(&temp_feedrate, "printer");
-        Previousfeedrate = mechanics.feedrate_percentage = (int)temp_feedrate;
+        Previousfeedrate = mechanics.feedrate_percentage = (int)VSpeed.getValue("printer");
         break;
       case 15:
         coordtoLCD();

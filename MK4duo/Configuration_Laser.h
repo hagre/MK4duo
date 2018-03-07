@@ -62,7 +62,7 @@
 //#define LASER_FIRE_E        // fire the laser when the E axis moves
 
 // Raster mode enables the laser to etch bitmap data at high speeds. Increases command buffer size substantially.
-#define LASER_RASTER
+//#define LASER_RASTER
 #define LASER_MAX_RASTER_LINE 68      // Maximum number of base64 encoded pixels per raster gcode command
 #define LASER_RASTER_ASPECT_RATIO 1   // pixels aren't square on most displays, 1.33 == 4:3 aspect ratio. 
 #define LASER_RASTER_MM_PER_PULSE 0.2 // Can be overridden by providing an R value in M649 command : M649 S17 B2 D0 R0.1 F4000
@@ -79,7 +79,6 @@
 
 #define LASER_WATTS 40.0
 #define LASER_DIAMETER 0.1        // milimeters
-#define LASER_PWM 25000           // hertz
 #define LASER_FOCAL_HEIGHT 74.50  // z axis position at which the laser is focused
 
 #endif /* _CONFIGURATION_LASER_H_ */

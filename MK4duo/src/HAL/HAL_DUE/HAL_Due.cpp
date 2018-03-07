@@ -64,7 +64,16 @@
 // --------------------------------------------------------------------------
 // Public Variables
 // --------------------------------------------------------------------------
-extern "C" char *sbrk(int i);
+#if ENABLED(MOVE_DEBUG)
+  unsigned int  numInterruptsScheduled    = 0,
+                numInterruptsExecuted     = 0;
+  uint32_t      nextInterruptTime         = 0,
+                nextInterruptScheduledAt  = 0,
+                lastInterruptTime         = 0,
+                acceleration_step_rate    = 0,
+                deceleration_step_rate    = 0;
+#endif
+
 uint8_t MCUSR;
 
 #if ANALOG_INPUTS > 0
@@ -100,20 +109,20 @@ void sei(void) {
 
 // Tone for due
 // input parameters: Arduino pin number, frequency in Hz, duration in milliseconds
-void tone(const Pin t_pin, const uint16_t frequency, const uint16_t duration) {
+void tone(const pin_t _pin, const uint16_t frequency, const uint16_t duration) {
 
   millis_t endTime = millis() + duration;
   const uint32_t halfPeriod = 1000000L / frequency / 2;
 
-  HAL::pinMode(t_pin, OUTPUT_LOW);
+  HAL::pinMode(_pin, OUTPUT_LOW);
 
   while (PENDING(millis(),  endTime)) {
-    HAL::digitalWrite(t_pin, HIGH);
+    HAL::digitalWrite(_pin, HIGH);
     HAL::delayMicroseconds(halfPeriod);
-    HAL::digitalWrite(t_pin, LOW);
+    HAL::digitalWrite(_pin, LOW);
     HAL::delayMicroseconds(halfPeriod);
   }
-  HAL::pinMode(t_pin, OUTPUT_LOW);
+  HAL::pinMode(_pin, OUTPUT_LOW);
 }
 
 static inline void ConfigurePin(const PinDescription& pinDesc) {
@@ -149,64 +158,16 @@ void HAL::hwSetup(void) {
   NVIC_SetPriority(SysTick_IRQn, NvicPrioritySystick);
   NVIC_SetPriority(UART_IRQn, NvicPriorityUart);
 
-  #if MB(ALLIGATOR) || MB(ALLIGATOR_V3)
-
-    ExternalDac::begin();
-    SET_INPUT(MOTOR_FAULT_PIN);
-    #if MB(ALLIGATOR_V3)
-      SET_INPUT(MOTOR_FAULT_PIGGY_PIN);
-      SET_INPUT(FTDI_COM_RESET_PIN);
-      SET_INPUT(ESP_WIFI_MODULE_RESET_PIN);
-      SET_OUTPUT(EXP1_VOLTAGE_SELECT);
-      OUT_WRITE(EXP1_OUT_ENABLE_PIN, HIGH);
-    #elif MB(ALLIGATOR)
-      // Init Expansion Port Voltage logic Selector
-      OUT_WRITE(EXP_VOLTAGE_LEVEL_PIN, UI_VOLTAGE_LEVEL);
-    #endif
-
-    #if HAS_BUZZER
-      BUZZ(10,10);
-    #endif
-
-  #elif MB(ULTRATRONICS)
-
-    /* avoid floating pins */
-    OUT_WRITE(ORIG_FAN0_PIN, LOW);
-    OUT_WRITE(ORIG_FAN1_PIN, LOW);
-
-    OUT_WRITE(ORIG_HEATER_0_PIN, LOW);
-    OUT_WRITE(ORIG_HEATER_1_PIN, LOW);
-    OUT_WRITE(ORIG_HEATER_2_PIN, LOW);
-    OUT_WRITE(ORIG_HEATER_3_PIN, LOW);
-
-    /* setup CS pins */
-    OUT_WRITE(MAX31855_SS0_PIN, HIGH);
-    OUT_WRITE(MAX31855_SS1_PIN, HIGH);
-    OUT_WRITE(MAX31855_SS2_PIN, HIGH);
-    OUT_WRITE(MAX31855_SS3_PIN, HIGH);
-
-    OUT_WRITE(ENC424_SS_PIN, HIGH);
-    OUT_WRITE(SS_PIN, HIGH);
-
-  #endif
 }
 
 // Print apparent cause of start/restart
 void HAL::showStartReason() {
-
-  int mcu = (RSTC->RSTC_SR & RSTC_SR_RSTTYP_Msk) >> RSTC_SR_RSTTYP_Pos;
-  switch (mcu) {
-    case 0:
-      SERIAL_EM(MSG_POWERUP); break;
-    case 1:
-      // this is return from backup mode on SAM
-      SERIAL_EM(MSG_BROWNOUT_RESET); break;
-    case 2:
-      SERIAL_EM(MSG_WATCHDOG_RESET); break;
-    case 3:
-      SERIAL_EM(MSG_SOFTWARE_RESET); break;
-    case 4:
-      SERIAL_EM(MSG_EXTERNAL_RESET); break;
+  switch ((RSTC->RSTC_SR >> 8) & 7) {
+    case 0: SERIAL_EM(MSG_POWERUP); break;
+    case 1: SERIAL_EM(MSG_BROWNOUT_RESET); break;
+    case 2: SERIAL_EM(MSG_WATCHDOG_RESET); break;
+    case 3: SERIAL_EM(MSG_SOFTWARE_RESET); break;
+    case 4: SERIAL_EM(MSG_EXTERNAL_RESET); break;
   }
 }
 
@@ -220,7 +181,7 @@ int HAL::getFreeRam() {
 }
 
 // Convert an Arduino Due analog pin number to the corresponding ADC channel number
-adc_channel_num_t PinToAdcChannel(Pin pin) {
+adc_channel_num_t PinToAdcChannel(pin_t pin) {
   if (pin == ADC_TEMPERATURE_SENSOR) return (adc_channel_num_t)ADC_TEMPERATURE_SENSOR; // MCU TEMPERATURE SENSOR
 
   // Arduino Due uses separate analog pin numbers
@@ -240,7 +201,7 @@ void AnalogInStartConversion() {
 }
 
 // Enable or disable a channel.
-void AnalogInEnablePin(const Pin r_pin, const bool enable) {
+void AnalogInEnablePin(const pin_t r_pin, const bool enable) {
   adc_channel_num_t adc_ch = PinToAdcChannel(r_pin);
   if ((unsigned int)adc_ch < NUM_ANALOG_INPUTS) {
     if (enable) {
@@ -257,7 +218,7 @@ void AnalogInEnablePin(const Pin r_pin, const bool enable) {
 }   
 
 // Read the most recent 12-bit result from a pin
-uint16_t AnalogInReadPin(const Pin r_pin) {
+uint16_t AnalogInReadPin(const pin_t r_pin) {
 
   adc_channel_num_t adc_ch = PinToAdcChannel(r_pin);
   if ((unsigned int)adc_ch < NUM_ANALOG_INPUTS)
@@ -333,38 +294,15 @@ void HAL::analogStart(void) {
   AnalogInStartConversion();
 }
 
-void HAL::AdcChangePin(const Pin old_pin, const Pin new_pin) {
+void HAL::AdcChangePin(const pin_t old_pin, const pin_t new_pin) {
   AnalogInEnablePin(old_pin, false);
   AnalogInEnablePin(new_pin, true);
 }
 
 // Reset peripherals and cpu
 void HAL::resetHardware() {
-
-  // Disable all interrupts
-	__disable_irq();
-
-	// Set bootflag to run SAM-BA bootloader at restart
-	const int EEFC_FCMD_CGPB = 0x0C;
-	const int EEFC_KEY = 0x5A;
-	while ((EFC0->EEFC_FSR & EEFC_FSR_FRDY) == 0);
-	EFC0->EEFC_FCR =
-		EEFC_FCR_FCMD(EEFC_FCMD_CGPB) |
-		EEFC_FCR_FARG(1) |
-		EEFC_FCR_FKEY(EEFC_KEY);
-	while ((EFC0->EEFC_FSR & EEFC_FSR_FRDY) == 0);
-
-	// From here flash memory is no more available.
-
 	// BANZAIIIIIII!!!
-	const int RSTC_KEY = 0xA5;
-	RSTC->RSTC_CR =
-		RSTC_CR_KEY(RSTC_KEY) |
-		RSTC_CR_PROCRST |
-		RSTC_CR_PERRST;
-
-	while (true);
-
+	RSTC->RSTC_CR =	RSTC_CR_KEY(0xA5) | RSTC_CR_PROCRST | RSTC_CR_PERRST;
 }
 
 // --------------------------------------------------------------------------
@@ -553,21 +491,21 @@ static void AnalogWriteTc(const PinDescription& pinDesc, const float ulValue, co
   return;
 }
 
-bool HAL::pwm_status(const Pin pin) {
+bool HAL::pwm_status(const pin_t pin) {
   const PinDescription& pinDesc = g_APinDescription[pin];
   const uint32_t attr = pinDesc.ulPinAttribute;
   if (attr & PIN_ATTR_PWM) return true;
   else return false;
 }
   
-bool HAL::tc_status(const Pin pin) {
+bool HAL::tc_status(const pin_t pin) {
   const PinDescription& pinDesc = g_APinDescription[pin];
   const uint32_t attr = pinDesc.ulPinAttribute;
   if (attr & PIN_ATTR_TIMER) return true;
   else return false;
 }
 
-void HAL::analogWrite(Pin pin, const uint8_t value, const uint16_t freq/*=1000*/) {
+void HAL::analogWrite(pin_t pin, const uint8_t value, const uint16_t freq/*=1000*/) {
 
   if (isnan(value) || pin <= 0) return;
 
@@ -604,7 +542,7 @@ void HAL::Tick() {
 
   static uint8_t  cycle_100ms = 0;
 
-  if (!printer.IsRunning()) return;
+  if (!printer.isRunning()) return;
 
   #if HEATER_COUNT > 0
     LOOP_HEATER() heaters[h].SetHardwarePwm();

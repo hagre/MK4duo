@@ -30,6 +30,12 @@
 
   #define CODE_M408
 
+  char GetStatusCharacter(){
+    return  print_job_counter.isRunning() ? 'P'   // Printing
+          : print_job_counter.isPaused()  ? 'A'   // Paused / Stopped
+          :                                 'I';  // Idle
+  }
+
   /**
    * M408: JSON STATUS OUTPUT
    */
@@ -39,7 +45,7 @@
 
     if (parser.seen('S')) type = parser.value_byte();
 
-    char ch = printer.GetStatusCharacter();
+    char ch = GetStatusCharacter();
     SERIAL_MSG("{\"status\":\"");
     SERIAL_CHR(ch);
 
@@ -58,7 +64,7 @@
 
     #if HAS_POWER_SWITCH
       SERIAL_MSG(",\"params\": {\"atxPower\":");
-      SERIAL_CHR(powerManager.powersupply_on ? '1' : '0');
+      SERIAL_CHR(powerManager.lastPowerOn ? '1' : '0');
     #else
       SERIAL_MSG(",\"params\": {\"NormPower\":");
     #endif
@@ -222,14 +228,14 @@
 
         #if MB(ALLIGATOR) || MB(ALLIGATOR_V3)
           SERIAL_MSG("\"currents\":[");
-          SERIAL_VAL(stepper.motor_current[X_AXIS]);
+          SERIAL_VAL(externaldac.motor_current[X_AXIS]);
           SERIAL_CHR(',');
-          SERIAL_VAL(stepper.motor_current[Y_AXIS]);
+          SERIAL_VAL(externaldac.motor_current[Y_AXIS]);
           SERIAL_CHR(',');
-          SERIAL_VAL(stepper.motor_current[Z_AXIS]);
+          SERIAL_VAL(externaldac.motor_current[Z_AXIS]);
           for (uint8_t i = 0; i < DRIVER_EXTRUDERS; i++) {
             SERIAL_CHR(',');
-            SERIAL_VAL(stepper.motor_current[E_AXIS + i]);
+            SERIAL_VAL(externaldac.motor_current[E_AXIS + i]);
           }
           SERIAL_EM("],");
         #endif

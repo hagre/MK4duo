@@ -31,7 +31,7 @@
 #endif
 
 // TEST_ENDSTOP: test the old and the current status of an endstop
-#define TEST_ENDSTOP(ENDSTOP) (TEST(current_endstop_bits & old_endstop_bits, ENDSTOP))
+#define TEST_ENDSTOP(ENDSTOP) (TEST(current_bits & old_bits, ENDSTOP))
 
 Endstops endstops;
 
@@ -60,8 +60,13 @@ volatile char Endstops::endstop_hit_bits; // use X_MIN, Y_MIN, Z_MIN and Z_MIN_P
 volatile uint8_t Endstops::e_hit = 0; // Different from 0 when the endstops shall be tested in detail.
                                       // Must be reset to 0 by the test function when the tests are finished.
 
-esbits_t  Endstops::current_endstop_bits = 0,
-          Endstops::old_endstop_bits = 0;
+uint16_t  Endstops::logic_bits    = 0,
+          Endstops::pullup_bits   = 0,
+          Endstops::current_bits  = 0,
+          Endstops::old_bits      = 0;
+
+// Private
+uint8_t   Endstops::flag1_bits    = 0;
 
 /**
  * Class and Instance Methods
@@ -70,119 +75,228 @@ esbits_t  Endstops::current_endstop_bits = 0,
 void Endstops::init() {
 
   #if HAS_X_MIN
-    #if ENABLED(ENDSTOPPULLUP_XMIN)
-      SET_INPUT_PULLUP(X_MIN_PIN);
-    #else
-      SET_INPUT(X_MIN_PIN);
-    #endif
+    SET_INPUT(X_MIN_PIN);
   #endif
 
   #if HAS_Y_MIN
-    #if ENABLED(ENDSTOPPULLUP_YMIN)
-      SET_INPUT_PULLUP(Y_MIN_PIN);
-    #else
-      SET_INPUT(Y_MIN_PIN);
-    #endif
+    SET_INPUT(Y_MIN_PIN);
   #endif
 
   #if HAS_Z_MIN
-    #if ENABLED(ENDSTOPPULLUP_ZMIN)
-      SET_INPUT_PULLUP(Z_MIN_PIN);
-    #else
-      SET_INPUT(Z_MIN_PIN);
-    #endif
+    SET_INPUT(Z_MIN_PIN);
   #endif
 
   #if HAS_Z2_MIN
-    #if ENABLED(ENDSTOPPULLUP_ZMIN)
-      SET_INPUT_PULLUP(Z2_MIN_PIN);
-    #else
-      SET_INPUT(Z2_MIN_PIN);
-    #endif
+    SET_INPUT(Z2_MIN_PIN);
   #endif
 
   #if HAS_Z3_MIN
-    #if ENABLED(ENDSTOPPULLUP_Z3MIN)
-      SET_INPUT_PULLUP(Z3_MIN_PIN);
-    #else
-      SET_INPUT(Z3_MIN_PIN);
-    #endif
+    SET_INPUT(Z3_MIN_PIN);
   #endif
 
   #if HAS_Z4_MIN
-    #if ENABLED(ENDSTOPPULLUP_Z4MIN)
-      SET_INPUT_PULLUP(Z4_MIN_PIN);
-    #else
-      SET_INPUT(Z4_MIN_PIN);
-    #endif
-  #endif
-
-  #if HAS_E_MIN
-    #if ENABLED(ENDSTOPPULLUP_EMIN)
-      SET_INPUT_PULLUP(E_MIN_PIN);
-    #else
-      SET_INPUT(E_MIN_PIN);
-    #endif
+    SET_INPUT(Z4_MIN_PIN);
   #endif
 
   #if HAS_X_MAX
-    #if ENABLED(ENDSTOPPULLUP_XMAX)
-      SET_INPUT_PULLUP(X_MAX_PIN);
-    #else
-      SET_INPUT(X_MAX_PIN);
-    #endif
+    SET_INPUT(X_MAX_PIN);
   #endif
 
   #if HAS_Y_MAX
-    #if ENABLED(ENDSTOPPULLUP_YMAX)
-      SET_INPUT_PULLUP(Y_MAX_PIN);
-    #else
-      SET_INPUT(Y_MAX_PIN);
-    #endif
+    SET_INPUT(Y_MAX_PIN);
   #endif
 
   #if HAS_Z_MAX
-    #if ENABLED(ENDSTOPPULLUP_ZMAX)
-      SET_INPUT_PULLUP(Z_MAX_PIN);
-    #else
-      SET_INPUT(Z_MAX_PIN);
-    #endif
+    SET_INPUT(Z_MAX_PIN);
   #endif
 
   #if HAS_Z2_MAX
-    #if ENABLED(ENDSTOPPULLUP_ZMAX)
-      SET_INPUT_PULLUP(Z2_MAX_PIN);
-    #else
-      SET_INPUT(Z2_MAX_PIN);
-    #endif
+    SET_INPUT(Z2_MAX_PIN);
   #endif
 
   #if HAS_Z3_MAX
-    #if ENABLED(ENDSTOPPULLUP_Z3MAX)
-      SET_INPUT_PULLUP(Z3_MAX_PIN);
-    #else
-      SET_INPUT(Z3_MAX_PIN);
-    #endif
+    SET_INPUT(Z3_MAX_PIN);
   #endif
 
   #if HAS_Z4_MAX
-    #if ENABLED(ENDSTOPPULLUP_Z4MAX)
-      SET_INPUT_PULLUP(Z4_MAX_PIN);
-    #else
-      SET_INPUT(Z4_MAX_PIN);
-    #endif
+    SET_INPUT(Z4_MAX_PIN);
   #endif
 
   #if HAS_Z_PROBE_PIN
-    #if ENABLED(ENDSTOPPULLUP_ZPROBE)
-      SET_INPUT_PULLUP(Z_PROBE_PIN);
-    #else
-      SET_INPUT(Z_PROBE_PIN);
-    #endif
+    SET_INPUT(Z_PROBE_PIN);
   #endif
 
-} // Endstops::init
+  #if HAS_FIL_RUNOUT
+    filamentrunout.init();
+  #endif
 
+  #if HAS_DOOR_OPEN
+    SET_INPUT(DOOR_OPEN_PIN);
+  #endif
+
+  #if HAS_POWER_CHECK && HAS_SDSUPPORT
+    SET_INPUT(POWER_CHECK_PIN);
+  #endif
+
+  #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+    setup_endstop_interrupts();
+  #endif
+
+}
+
+void Endstops::setup_pullup() {
+
+  #if HAS_X_MIN
+    HAL::setInputPullup(X_MIN_PIN, isPullup(X_MIN));
+  #endif
+
+  #if HAS_Y_MIN
+    HAL::setInputPullup(Y_MIN_PIN, isPullup(Y_MIN));
+  #endif
+
+  #if HAS_Z_MIN
+    HAL::setInputPullup(Z_MIN_PIN, isPullup(Z_MIN));
+  #endif
+
+  #if HAS_Z2_MIN
+    HAL::setInputPullup(Z2_MIN_PIN, isPullup(Z2_MIN));
+  #endif
+
+  #if HAS_Z3_MIN
+    HAL::setInputPullup(Z3_MIN_PIN, isPullup(Z3_MIN));
+  #endif
+
+  #if HAS_Z4_MIN
+    HAL::setInputPullup(Z4_MIN_PIN, isPullup(Z4_MIN));
+  #endif
+
+  #if HAS_X_MAX
+    HAL::setInputPullup(X_MAX_PIN, isPullup(X_MAX));
+  #endif
+
+  #if HAS_Y_MAX
+    HAL::setInputPullup(Y_MAX_PIN, isPullup(Y_MAX));
+  #endif
+
+  #if HAS_Z_MAX
+    HAL::setInputPullup(Z_MAX_PIN, isPullup(Z_MAX));
+  #endif
+
+  #if HAS_Z2_MAX
+    HAL::setInputPullup(Z2_MAX_PIN, isPullup(Z2_MAX));
+  #endif
+
+  #if HAS_Z3_MAX
+    HAL::setInputPullup(Z3_MAX_PIN, isPullup(Z3_MAX));
+  #endif
+
+  #if HAS_Z4_MAX
+    HAL::setInputPullup(Z4_MAX_PIN, isPullup(Z4_MAX));
+  #endif
+
+  #if HAS_Z_PROBE_PIN
+    HAL::setInputPullup(Z_PROBE_PIN, isPullup(Z_PROBE));
+  #endif
+
+  #if HAS_FIL_RUNOUT
+    filamentrunout.setup_pullup(isPullup(FIL_RUNOUT));
+  #endif
+
+  #if HAS_DOOR_OPEN
+    HAL::setInputPullup(DOOR_OPEN_PIN, isPullup(DOOR_OPEN));
+  #endif
+
+  #if HAS_POWER_CHECK && HAS_SDSUPPORT
+    HAL::setInputPullup(POWER_CHECK_PIN, isPullup(POWER_CHECK));
+  #endif
+
+}
+
+void Endstops::report() {
+
+  bool  x_logic, x_pullup,
+        y_logic, y_pullup,
+        z_logic, z_pullup;
+
+  #if HAS_Z2_MIN || HAS_Z2_MAX
+    bool z2_logic, z2_pullup;
+  #endif
+
+  #if HAS_Z3_MIN || HAS_Z3_MAX
+    bool z3_logic, z3_pullup;
+  #endif
+
+  #if HAS_Z4_MIN || HAS_Z4_MAX
+    bool z4_logic, z4_pullup;
+  #endif
+
+  if (mechanics.home_dir[X_AXIS] == -1) {
+    x_logic   = isLogic(X_MIN);
+    x_pullup  = isPullup(X_MIN);
+  }
+  else {
+    x_logic   = isLogic(X_MAX);
+    x_pullup  = isPullup(X_MAX);
+  }
+
+  if (mechanics.home_dir[Y_AXIS] == -1) {
+    y_logic   = isLogic(Y_MIN);
+    y_pullup  = isPullup(Y_MIN);
+  }
+  else {
+    y_logic   = isLogic(Y_MAX);
+    y_pullup  = isPullup(Y_MAX);
+  }
+
+  if (mechanics.home_dir[Z_AXIS] == -1) {
+    z_logic   = isLogic(Z_MIN);
+    z_pullup  = isPullup(Z_MIN);
+  }
+  else {
+    z_logic   = isLogic(Z_MAX);
+    z_pullup  = isPullup(Z_MAX);
+  }
+
+  SERIAL_EM("Reporting endstop logic and pullup");
+
+  // X Endstop
+  SERIAL_MV("Endstop X Logic:", x_logic ? "true" : "false");
+  SERIAL_EMV(" Pullup:", x_pullup ? "true" : "false");
+
+  // Y Endstop
+  SERIAL_MV("Endstop Y Logic:", y_logic ? "true" : "false");
+  SERIAL_EMV(" Pullup:", y_pullup ? "true" : "false");
+
+  // Z Endstop
+  SERIAL_MV("Endstop Z Logic:", z_logic ? "true" : "false");
+  SERIAL_EMV(" Pullup:", z_pullup ? "true" : "false");
+
+  #if HAS_Z_PROBE_PIN
+    // Probe Endstop
+    SERIAL_MV("Endstop PROBE Logic:", isLogic(Z_PROBE) ? "true" : "false");
+    SERIAL_EMV(" Pullup:", isPullup(Z_PROBE) ? "true" : "false");
+  #endif
+
+  #if HAS_FIL_RUNOUT
+    // FIL RUNOUT
+    SERIAL_MV("Endstop FIL_RUNOUT Logic:", isLogic(FIL_RUNOUT) ? "true" : "false");
+    SERIAL_EMV(" Pullup:", isPullup(FIL_RUNOUT) ? "true" : "false");
+  #endif
+
+  #if HAS_DOOR_OPEN
+    // Door Open
+    SERIAL_MV("Endstop DOOR OPEN Logic:", isLogic(DOOR_OPEN) ? "true" : "false");
+    SERIAL_EMV(" Pullup:", isPullup(DOOR_OPEN) ? "true" : "false");
+  #endif
+
+  #if HAS_POWER_CHECK && HAS_SDSUPPORT
+    // Power Check
+    SERIAL_MV("Endstop Power Check Logic:", isLogic(POWER_CHECK) ? "true" : "false");
+    SERIAL_EMV(" Pullup:", isPullup(POWER_CHECK) ? "true" : "false");
+  #endif
+
+}
+    
 void Endstops::report_state() {
   if (endstop_hit_bits) {
     #if ENABLED(ULTRA_LCD)
@@ -265,7 +379,7 @@ void Endstops::report_state() {
  */
 void Endstops::clamp_to_software_endstops(float target[XYZ]) {
 
-  if (!printer.IsSoftEndstop()) return;
+  if (!isSoftEndstop()) return;
 
   #if IS_KINEMATIC
     const float dist_2 = HYPOT2(target[X_AXIS], target[Y_AXIS]);
@@ -360,80 +474,92 @@ void Endstops::clamp_to_software_endstops(float target[XYZ]) {
    *
    */
   void Endstops::endstop_monitor() {
-    static uint16_t old_endstop_bits_local = 0;
-    uint16_t current_endstop_bits_local = 0;
+    static uint16_t old_bits_local = 0;
+    uint16_t current_bits_local = 0;
     #if HAS_X_MIN
-      if (READ(X_MIN_PIN)) SBI(current_endstop_bits_local, X_MIN);
+      if (READ(X_MIN_PIN)) SBI(current_bits_local, X_MIN);
     #endif
     #if HAS_X_MAX
-      if (READ(X_MAX_PIN)) SBI(current_endstop_bits_local, X_MAX);
+      if (READ(X_MAX_PIN)) SBI(current_bits_local, X_MAX);
     #endif
     #if HAS_Y_MIN
-      if (READ(Y_MIN_PIN)) SBI(current_endstop_bits_local, Y_MIN);
+      if (READ(Y_MIN_PIN)) SBI(current_bits_local, Y_MIN);
     #endif
     #if HAS_Y_MAX
-      if (READ(Y_MAX_PIN)) SBI(current_endstop_bits_local, Y_MAX);
+      if (READ(Y_MAX_PIN)) SBI(current_bits_local, Y_MAX);
     #endif
     #if HAS_Z_MIN
-      if (READ(Z_MIN_PIN)) SBI(current_endstop_bits_local, Z_MIN);
+      if (READ(Z_MIN_PIN)) SBI(current_bits_local, Z_MIN);
     #endif
     #if HAS_Z_MAX
-      if (READ(Z_MAX_PIN)) SBI(current_endstop_bits_local, Z_MAX);
+      if (READ(Z_MAX_PIN)) SBI(current_bits_local, Z_MAX);
     #endif
     #if HAS_Z_PROBE_PIN
-      if (READ(Z_PROBE_PIN)) SBI(current_endstop_bits_local, Z_PROBE);
+      if (READ(Z_PROBE_PIN)) SBI(current_bits_local, Z_PROBE);
     #endif
     #if HAS_Z2_MIN
-      if (READ(Z2_MIN_PIN)) SBI(current_endstop_bits_local, Z2_MIN);
+      if (READ(Z2_MIN_PIN)) SBI(current_bits_local, Z2_MIN);
     #endif
     #if HAS_Z2_MAX
-      if (READ(Z2_MAX_PIN)) SBI(current_endstop_bits_local, Z2_MAX);
+      if (READ(Z2_MAX_PIN)) SBI(current_bits_local, Z2_MAX);
+    #endif
+    #if HAS_Z3_MIN
+      if (READ(Z3_MIN_PIN)) SBI(current_bits_local, Z3_MIN);
+    #endif
+    #if HAS_Z3_MAX
+      if (READ(Z3_MAX_PIN)) SBI(current_bits_local, Z3_MAX);
+    #endif
+    #if HAS_Z4_MIN
+      if (READ(Z4_MIN_PIN)) SBI(current_bits_local, Z4_MIN);
+    #endif
+    #if HAS_Z4_MAX
+      if (READ(Z4_MAX_PIN)) SBI(current_bits_local, Z4_MAX);
     #endif
 
-    uint16_t endstop_change = current_endstop_bits_local ^ old_endstop_bits_local;
+    uint16_t endstop_change = current_bits_local ^ old_bits_local;
 
     if (endstop_change) {
       #if HAS_X_MIN
-        if (TEST(endstop_change, X_MIN)) SERIAL_MV("  X_MIN:", TEST(current_endstop_bits_local, X_MIN));
+        if (TEST(endstop_change, X_MIN)) SERIAL_MV("  X_MIN:", TEST(current_bits_local, X_MIN));
       #endif
       #if HAS_X_MAX
-        if (TEST(endstop_change, X_MAX)) SERIAL_MV("  X_MAX:", TEST(current_endstop_bits_local, X_MAX));
+        if (TEST(endstop_change, X_MAX)) SERIAL_MV("  X_MAX:", TEST(current_bits_local, X_MAX));
       #endif
       #if HAS_Y_MIN
-        if (TEST(endstop_change, Y_MIN)) SERIAL_MV("  Y_MIN:", TEST(current_endstop_bits_local, Y_MIN));
+        if (TEST(endstop_change, Y_MIN)) SERIAL_MV("  Y_MIN:", TEST(current_bits_local, Y_MIN));
       #endif
       #if HAS_Y_MAX
-        if (TEST(endstop_change, Y_MAX)) SERIAL_MV("  Y_MAX:", TEST(current_endstop_bits_local, Y_MAX));
+        if (TEST(endstop_change, Y_MAX)) SERIAL_MV("  Y_MAX:", TEST(current_bits_local, Y_MAX));
       #endif
       #if HAS_Z_MIN
-        if (TEST(endstop_change, Z_MIN)) SERIAL_MV("  Z_MIN:", TEST(current_endstop_bits_local, Z_MIN));
+        if (TEST(endstop_change, Z_MIN)) SERIAL_MV("  Z_MIN:", TEST(current_bits_local, Z_MIN));
       #endif
       #if HAS_Z_MAX
-        if (TEST(endstop_change, Z_MAX)) SERIAL_MV("  Z_MAX:", TEST(current_endstop_bits_local, Z_MAX));
+        if (TEST(endstop_change, Z_MAX)) SERIAL_MV("  Z_MAX:", TEST(current_bits_local, Z_MAX));
       #endif
       #if HAS_Z_PROBE_PIN
-        if (TEST(endstop_change, Z_PROBE)) SERIAL_MV("  PROBE:", TEST(current_endstop_bits_local, Z_PROBE));
+        if (TEST(endstop_change, Z_PROBE)) SERIAL_MV("  PROBE:", TEST(current_bits_local, Z_PROBE));
       #endif
       #if HAS_Z2_MIN
-        if (TEST(endstop_change, Z2_MIN)) SERIAL_MV("  Z2_MIN:", TEST(current_endstop_bits_local, Z2_MIN));
+        if (TEST(endstop_change, Z2_MIN)) SERIAL_MV("  Z2_MIN:", TEST(current_bits_local, Z2_MIN));
       #endif
       #if HAS_Z2_MAX
-        if (TEST(endstop_change, Z2_MAX)) SERIAL_MV("  Z2_MAX:", TEST(current_endstop_bits_local, Z2_MAX));
+        if (TEST(endstop_change, Z2_MAX)) SERIAL_MV("  Z2_MAX:", TEST(current_bits_local, Z2_MAX));
       #endif
       #if HAS_Z3_MIN
-        if (TEST(endstop_change, Z3_MIN)) SERIAL_MV("  Z3_MIN:", TEST(current_endstop_bits_local, Z3_MIN));
+        if (TEST(endstop_change, Z3_MIN)) SERIAL_MV("  Z3_MIN:", TEST(current_bits_local, Z3_MIN));
       #endif
       #if HAS_Z3_MAX
-        if (TEST(endstop_change, Z3_MAX)) SERIAL_MV("  Z3_MAX:", TEST(current_endstop_bits_local, Z3_MAX));
+        if (TEST(endstop_change, Z3_MAX)) SERIAL_MV("  Z3_MAX:", TEST(current_bits_local, Z3_MAX));
       #endif
       #if HAS_Z4_MIN
-        if (TEST(endstop_change, Z4_MIN)) SERIAL_MV("  Z4_MIN:", TEST(current_endstop_bits_local, Z4_MIN));
+        if (TEST(endstop_change, Z4_MIN)) SERIAL_MV("  Z4_MIN:", TEST(current_bits_local, Z4_MIN));
       #endif
       #if HAS_Z4_MAX
-        if (TEST(endstop_change, Z4_MAX)) SERIAL_MV("  Z4_MAX:", TEST(current_endstop_bits_local, Z4_MAX));
+        if (TEST(endstop_change, Z4_MAX)) SERIAL_MV("  Z4_MAX:", TEST(current_bits_local, Z4_MAX));
       #endif
       SERIAL_MSG("\n\n");
-      old_endstop_bits_local = current_endstop_bits_local;
+      old_bits_local = current_bits_local;
     }
   }
 #endif // PINS_DEBUGGING
@@ -443,11 +569,11 @@ void Endstops::update() {
 
   #define _ENDSTOP(AXIS, MINMAX) AXIS ##_## MINMAX
   #define _ENDSTOP_PIN(AXIS, MINMAX) AXIS ##_## MINMAX ##_PIN
-  #define _ENDSTOP_INVERTING(AXIS, MINMAX) AXIS ##_## MINMAX ##_ENDSTOP_INVERTING
+  #define _ENDSTOP_LOGIC(AXIS, MINMAX) isLogic(AXIS ##_## MINMAX)
   #define _ENDSTOP_HIT(AXIS, MINMAX) SBI(endstop_hit_bits, _ENDSTOP(AXIS, MINMAX))
 
   // UPDATE_ENDSTOP_BIT: set the current endstop bits for an endstop to its status
-  #define UPDATE_ENDSTOP_BIT(AXIS, MINMAX) SET_BIT(current_endstop_bits, _ENDSTOP(AXIS, MINMAX), (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_INVERTING(AXIS, MINMAX)))
+  #define UPDATE_ENDSTOP_BIT(AXIS, MINMAX) SET_BIT(current_bits, _ENDSTOP(AXIS, MINMAX), (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_LOGIC(AXIS, MINMAX)))
   // COPY_BIT: copy the value of SRC_BIT to DST_BIT in DST
   #define COPY_BIT(DST, SRC_BIT, DST_BIT) SET_BIT(DST, DST_BIT, TEST(DST, SRC_BIT))
 
@@ -467,7 +593,7 @@ void Endstops::update() {
         if      (stepper.current_block->steps[X_AXIS] > 0) { _ENDSTOP_HIT(X, MIN); stepper.endstop_triggered(X_AXIS); }
         else if (stepper.current_block->steps[Y_AXIS] > 0) { _ENDSTOP_HIT(Y, MIN); stepper.endstop_triggered(Y_AXIS); }
         else if (stepper.current_block->steps[Z_AXIS] > 0) { _ENDSTOP_HIT(Z, MIN); stepper.endstop_triggered(Z_AXIS); }
-        printer.setG38EndstopHit(true);
+        setG38EndstopHit(true);
       }
     }
   #endif
@@ -556,14 +682,14 @@ void Endstops::update() {
    */
 
   if (X_MOVE_TEST) {
-    if (stepper.motor_direction(X_AXIS_HEAD)) {
-      if (X_MIN_TEST) { // -direction
+    if (stepper.motor_direction(X_AXIS_HEAD)) { // -direction
+      if (X_MIN_TEST) {
         #if HAS_X_MIN
           UPDATE_ENDSTOP(X, MIN);
         #endif
       }
     }
-    else if (X_MAX_TEST) { // +direction
+    else if (X_MAX_TEST) {                      // +direction
       #if HAS_X_MAX
         UPDATE_ENDSTOP(X, MAX);
       #endif
@@ -576,7 +702,7 @@ void Endstops::update() {
         UPDATE_ENDSTOP(Y, MIN);
       #endif
     }
-    else { // +direction
+    else {                                      // +direction
       #if HAS_Y_MAX
         UPDATE_ENDSTOP(Y, MAX);
       #endif
@@ -592,17 +718,17 @@ void Endstops::update() {
           #if HAS_Z2_MIN
             UPDATE_ENDSTOP_BIT(Z2, MIN);
           #else
-            COPY_BIT(current_endstop_bits, Z_MIN, Z2_MIN);
+            COPY_BIT(current_bits, Z_MIN, Z2_MIN);
           #endif
           #if HAS_Z3_MIN
             UPDATE_ENDSTOP_BIT(Z3, MIN);
           #else
-            COPY_BIT(current_endstop_bits, Z_MIN, Z3_MIN);
+            COPY_BIT(current_bits, Z_MIN, Z3_MIN);
           #endif
           #if HAS_Z4_MIN
             UPDATE_ENDSTOP_BIT(Z4, MIN);
           #else
-            COPY_BIT(current_endstop_bits, Z_MIN, Z4_MIN);
+            COPY_BIT(current_bits, Z_MIN, Z4_MIN);
           #endif
 
           test_four_z_endstops(Z_MIN, Z2_MIN, Z3_MIN, Z4_MIN);
@@ -613,12 +739,12 @@ void Endstops::update() {
           #if HAS_Z2_MIN
             UPDATE_ENDSTOP_BIT(Z2, MIN);
           #else
-            COPY_BIT(current_endstop_bits, Z_MIN, Z2_MIN);
+            COPY_BIT(current_bits, Z_MIN, Z2_MIN);
           #endif
           #if HAS_Z3_MIN
             UPDATE_ENDSTOP_BIT(Z3, MIN);
           #else
-            COPY_BIT(current_endstop_bits, Z_MIN, Z3_MIN);
+            COPY_BIT(current_bits, Z_MIN, Z3_MIN);
           #endif
 
           test_three_z_endstops(Z_MIN, Z2_MIN, Z3_MIN);
@@ -629,7 +755,7 @@ void Endstops::update() {
           #if HAS_Z2_MIN
             UPDATE_ENDSTOP_BIT(Z2, MIN);
           #else
-            COPY_BIT(current_endstop_bits, Z_MIN, Z2_MIN);
+            COPY_BIT(current_bits, Z_MIN, Z2_MIN);
           #endif
 
           test_two_z_endstops(Z_MIN, Z2_MIN);
@@ -637,7 +763,7 @@ void Endstops::update() {
         #else
 
           #if HAS_BED_PROBE && !HAS_Z_PROBE_PIN
-            if (printer.IsProbeEndstop()) UPDATE_ENDSTOP(Z, MIN);
+            if (endstops.isProbeEndstop()) UPDATE_ENDSTOP(Z, MIN);
           #else
             UPDATE_ENDSTOP(Z, MIN);
           #endif
@@ -648,7 +774,7 @@ void Endstops::update() {
 
       // When closing the gap check the enabled probe
       #if HAS_BED_PROBE && HAS_Z_PROBE_PIN
-        if (printer.IsProbeEndstop()) {
+        if (endstops.isProbeEndstop()) {
           UPDATE_ENDSTOP(Z, PROBE);
           if (TEST_ENDSTOP(Z_PROBE)) SBI(endstop_hit_bits, Z_PROBE);
         }
@@ -664,17 +790,17 @@ void Endstops::update() {
           #if HAS_Z2_MAX
             UPDATE_ENDSTOP_BIT(Z2, MAX);
           #else
-            COPY_BIT(current_endstop_bits, Z_MAX, Z2_MAX);
+            COPY_BIT(current_bits, Z_MAX, Z2_MAX);
           #endif
           #if HAS_Z3_MAX
             UPDATE_ENDSTOP_BIT(Z3, MAX);
           #else
-            COPY_BIT(current_endstop_bits, Z_MAX, Z3_MAX);
+            COPY_BIT(current_bits, Z_MAX, Z3_MAX);
           #endif
           #if HAS_Z4_MAX
             UPDATE_ENDSTOP_BIT(Z4, MAX);
           #else
-            COPY_BIT(current_endstop_bits, Z_MAX, Z4_MAX);
+            COPY_BIT(current_bits, Z_MAX, Z4_MAX);
           #endif
 
           test_four_z_endstops(Z_MAX, Z2_MAX, Z3_MAX, Z4_MAX);
@@ -685,12 +811,12 @@ void Endstops::update() {
           #if HAS_Z2_MAX
             UPDATE_ENDSTOP_BIT(Z2, MAX);
           #else
-            COPY_BIT(current_endstop_bits, Z_MAX, Z2_MAX);
+            COPY_BIT(current_bits, Z_MAX, Z2_MAX);
           #endif
           #if HAS_Z3_MAX
             UPDATE_ENDSTOP_BIT(Z3, MAX);
           #else
-            COPY_BIT(current_endstop_bits, Z_MAX, Z3_MAX);
+            COPY_BIT(current_bits, Z_MAX, Z3_MAX);
           #endif
 
           test_three_z_endstops(Z_MAX, Z2_MAX, Z3_MAX);
@@ -701,7 +827,7 @@ void Endstops::update() {
           #if HAS_Z2_MAX
             UPDATE_ENDSTOP_BIT(Z2, MAX);
           #else
-            COPY_BIT(current_endstop_bits, Z_MAX, Z2_MAX);
+            COPY_BIT(current_bits, Z_MAX, Z2_MAX);
           #endif
 
           test_two_z_endstops(Z_MAX, Z2_MAX);
@@ -715,10 +841,6 @@ void Endstops::update() {
     }
   }
 
-  #if ENABLED(NPR2)
-    UPDATE_ENDSTOP(E, MIN);
-  #endif
-
-  old_endstop_bits = current_endstop_bits;
+  old_bits = current_bits;
 
 } // Endstops::update()

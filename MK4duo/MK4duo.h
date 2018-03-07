@@ -42,12 +42,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <binary.h>
 
 #ifdef __AVR__
   #include <avr/pgmspace.h>
   #include <avr/eeprom.h>
   #include <avr/interrupt.h>
 #endif
+
+#include <SPI.h>
+
+/**
+ * Types
+ */
+typedef uint32_t  millis_t;
+typedef int8_t    pin_t;
+
 
 #include "src/inc/macros.h"
 #include "Boards.h"
@@ -120,6 +130,7 @@
 #include "src/core/heater/sensor/thermistor.h"
 #include "src/core/heater/heater.h"
 #include "src/core/temperature/temperature.h"
+#include "src/core/printcounter/printcounter.h"
 
 // LCD modules
 #include "src/lcd/language/language.h"
@@ -135,8 +146,6 @@
 #include "src/utility/bezier.h"
 
 // Feature modules
-#include "src/feature/printcounter/duration_t.h"
-#include "src/feature/printcounter/printcounter.h"
 #include "src/feature/probe/probe.h"
 #include "src/feature/bedlevel/bedlevel.h"
 #include "src/feature/external_dac/external_dac.h"
@@ -162,12 +171,7 @@
  * External libraries loading
  */
 
-#if HAS_DIGIPOTSS
-  #include <SPI.h>
-#endif
-
 #if ENABLED(HAVE_TMCDRIVER)
-  #include <SPI.h>
   #include <TMC26XStepper.h>
 #endif
 
@@ -180,7 +184,6 @@
 #endif
 
 #if ENABLED(HAVE_L6470DRIVER)
-  #include <SPI.h>
   #include <L6470.h>
 #endif
 

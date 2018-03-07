@@ -38,7 +38,7 @@ inline void gcode_M42(void) {
   if (!parser.seenval('S')) return;
   const byte pin_status = parser.value_byte();
 
-  const Pin pin_number = parser.pinval('P', LED_PIN);
+  const pin_t pin_number = parser.pinval('P', LED_PIN);
   if (pin_number == NoPin) return;
 
   if (printer.pin_is_protected(pin_number)) {
@@ -46,13 +46,8 @@ inline void gcode_M42(void) {
     return;
   }
 
-  HAL::pinMode(pin_number, OUTPUT);
-  HAL::digitalWrite(pin_number, pin_status);
-  HAL::analogWrite(pin_number, pin_status);
+  pinMode(pin_number, OUTPUT);
+  digitalWrite(pin_number, pin_status);
+  analogWrite(pin_number, pin_status);
 
-  #if FAN_COUNT > 0
-    LOOP_FAN() {
-      if (fans[f].pin == pin_number) fans[f].Speed = pin_status;
-    }
-  #endif
 }

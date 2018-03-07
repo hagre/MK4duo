@@ -107,13 +107,11 @@
  *
  * When enabled MK4duo will send a busy status message to the host
  * every couple of seconds when it can't accept commands.
- * Disable this if your host doesn't like keepalive messages
  */
-//#define HOST_KEEPALIVE_FEATURE
+// Disable this if your host doesn't like keepalive messages
+#define HOST_KEEPALIVE_FEATURE
 // Number of seconds between "busy" messages. Set with M113.
 #define DEFAULT_KEEPALIVE_INTERVAL 2
-// Some hosts require "busy" messages even during heating
-#define BUSY_WHILE_HEATING
 /***********************************************************************/
 
 
@@ -174,9 +172,11 @@
 
 // Define this to have the electronics keep the power supply off on startup.
 // If you don't know what this is leave it.
-//#define PS_DEFAULT_OFF
+#define PS_DEFAULT_OFF false
 // Define delay after power on in seconds
 #define DELAY_AFTER_POWER_ON 5
+// Define time for automatic power off if not needed in second
+#define POWER_TIMEOUT 30
 /*************************************************************************************/
 
 

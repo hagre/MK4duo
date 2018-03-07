@@ -60,7 +60,7 @@
       /**
        * Initialize Cartesian parameters
        */
-      void Init();
+      void init();
 
       /**
        * Home all axes according to settings
@@ -77,7 +77,7 @@
        *  Z   Home to the Z endstop
        *
        */
-       void Home(const bool always_home_all);
+       void home(const bool always_home_all);
 
       /**
        * Prepare a single move and get ready for the next one
@@ -97,6 +97,13 @@
 
       #if ENABLED(DUAL_X_CARRIAGE)
         float x_home_pos(const int extruder);
+      #endif
+
+      /**
+       * Set sensorless homing if the axis has it.
+       */
+      #if ENABLED(SENSORLESS_HOMING)
+        void sensorless_homing_per_axis(const AxisEnum axis, const bool enable=true);
       #endif
 
     private: /** Private Function */

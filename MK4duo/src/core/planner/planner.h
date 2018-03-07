@@ -41,18 +41,18 @@ enum BlockFlagBit {
   // from a safe speed (in consideration of jerking from zero speed).
   BLOCK_BIT_NOMINAL_LENGTH,
 
-  // Start from a halt at the start of this block, respecting the maximum allowed jerk.
-  BLOCK_BIT_START_FROM_FULL_HALT,
-
   // The block is busy
-  BLOCK_BIT_BUSY
+  BLOCK_BIT_BUSY,
+
+  // The block is segment 2+ of a longer move
+  BLOCK_BIT_CONTINUED
 };
 
 enum BlockFlag {
   BLOCK_FLAG_RECALCULATE          = _BV(BLOCK_BIT_RECALCULATE),
   BLOCK_FLAG_NOMINAL_LENGTH       = _BV(BLOCK_BIT_NOMINAL_LENGTH),
-  BLOCK_FLAG_START_FROM_FULL_HALT = _BV(BLOCK_BIT_START_FROM_FULL_HALT),
-  BLOCK_FLAG_BUSY                 = _BV(BLOCK_BIT_BUSY)
+  BLOCK_FLAG_BUSY                 = _BV(BLOCK_BIT_BUSY),
+  BLOCK_FLAG_CONTINUED            = _BV(BLOCK_BIT_CONTINUED)
 };
 
 /**
@@ -87,8 +87,11 @@ typedef struct {
 
   // Advance extrusion
   #if ENABLED(LIN_ADVANCE)
-    bool use_advance_lead;
-    uint32_t abs_adv_steps_multiplier8;     // Factorised by 2^8 to avoid float
+    bool      use_advance_lead;
+    uint16_t  advance_speed,                // Timer value for extruder speed offset
+              max_adv_steps,                // max. advance steps to get cruising speed pressure (not always nominal_speed!)
+              final_adv_steps;              // advance steps due to exit speed
+    float     e_D_ratio;
   #endif
 
   // Fields used by the motion planner to manage acceleration
@@ -166,11 +169,8 @@ class Planner {
     static uint32_t cutoff_long;
 
     #if ENABLED(LIN_ADVANCE)
-      static float  extruder_advance_k,
-                    advance_ed_ratio,
-                    position_float[XYZE],
-                    lin_dist_xy,
-                    lin_dist_e;
+      static float  extruder_advance_K,
+                    position_float[XYZE];
     #endif
 
   private: /** Private Parameters */
@@ -231,8 +231,13 @@ class Planner {
      *  target      - target position in steps units
      *  fr_mm_s     - (target) speed of the move
      *  extruder    - target extruder
+     *  millimeters - the length of the movement, if known
      */
-    static void buffer_steps(const int32_t (&target)[XYZE], float fr_mm_s, const uint8_t extruder);
+    #if ENABLED(LIN_ADVANCE)
+      static void buffer_steps(const int32_t (&target)[XYZE], const float (&target_float)[XYZE], float fr_mm_s, const uint8_t extruder, const float &millimeters=0.0);
+    #else
+      static void buffer_steps(const int32_t (&target)[XYZE], float fr_mm_s, const uint8_t extruder, const float &millimeters=0.0);
+    #endif
 
     /**
      * Planner::buffer_segment
@@ -244,8 +249,9 @@ class Planner {
      *  a,b,c,e     - target positions in mm and/or degrees
      *  fr_mm_s     - (target) speed of the move
      *  extruder    - target extruder
+     *  millimeters - the length of the movement, if known
      */
-    static void buffer_segment(const float &a, const float &b, const float &c, const float &e, const float &fr_mm_s, const uint8_t extruder);
+    static void buffer_segment(const float &a, const float &b, const float &c, const float &e, const float &fr_mm_s, const uint8_t extruder, const float &millimeters=0.0);
 
     /**
      * Add a new linear movement to the buffer.
@@ -258,8 +264,9 @@ class Planner {
      *  rx,ry,rz,e  - target position in mm or degrees
      *  fr_mm_s     - (target) speed of the move (mm/s)
      *  extruder    - target extruder
+     *  millimeters - the length of the movement, if known
      */
-    static void buffer_line(ARG_X, ARG_Y, ARG_Z, const float &e, const float &fr_mm_s, const uint8_t extruder);
+    static void buffer_line(ARG_X, ARG_Y, ARG_Z, const float &e, const float &fr_mm_s, const uint8_t extruder, const float millimeters=0.0);
 
     /**
      * Add a new linear movement to the buffer.
@@ -269,8 +276,9 @@ class Planner {
      *  cart        - x,y,z,e CARTESIAN target in mm
      *  fr_mm_s     - (target) speed of the move (mm/s)
      *  extruder    - target extruder
+     *  millimeters - the length of the movement, if known
      */
-    static void buffer_line_kinematic(const float cart[XYZE], const float &fr_mm_s, const uint8_t extruder);
+    static void buffer_line_kinematic(const float cart[XYZE], const float &fr_mm_s, const uint8_t extruder, const float millimeters=0.0);
 
     FORCE_INLINE static void zero_previous_nominal_speed() { previous_nominal_speed = 0.0; } // Resets planner junction speeds. Assumes start from rest.
     FORCE_INLINE static void zero_previous_speed(const AxisEnum axis) { previous_speed[axis] = 0.0; }
@@ -280,6 +288,11 @@ class Planner {
      * Sync from the stepper positions. (e.g., after an interrupted move)
      */
     static void sync_from_steppers();
+
+    /**
+     * Abort Printing
+     */
+    void abort();
 
     /**
      * Does the buffer have any blocks queued?
@@ -293,6 +306,16 @@ class Planner {
     FORCE_INLINE static void discard_current_block() {
       if (blocks_queued())
         block_buffer_tail = BLOCK_MOD(block_buffer_tail + 1);
+    }
+
+    /**
+     * "Discard" the next block if it's continued.
+     * Called after an interrupted move to throw away the rest of the move.
+     */
+    FORCE_INLINE static bool discard_continued_block() {
+      const bool discard = blocks_queued() && TEST(block_buffer[block_buffer_tail].flag, BLOCK_BIT_CONTINUED);
+      if (discard) discard_current_block();
+      return discard;
     }
 
     /**
@@ -320,11 +343,6 @@ class Planner {
     FORCE_INLINE void add_block_length(uint16_t block_len) {
       if (block_buffer_head != block_buffer_tail)
         block_buffer[prev_block_index(block_buffer_head)].block_len += block_len;
-    }
-
-    FORCE_INLINE void abort() {
-      block_buffer_head = block_buffer_tail = 0;
-      ZERO(block_buffer);
     }
 
     /**
