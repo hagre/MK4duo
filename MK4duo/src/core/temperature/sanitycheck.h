@@ -19,15 +19,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * sanitycheck.h
  *
  * Test configuration values for errors at compile-time.
  */
-
-#ifndef _TEMPERATURE_SANITYCHECK_H_
-#define _TEMPERATURE_SANITYCHECK_H_
 
 // Temperature defines
 #if ENABLED(TEMP_RESIDENCY_TIME)
@@ -96,7 +94,7 @@
   #if DISABLED(COOLER_MINTEMP)
     #error "DEPENDENCY ERROR: Missing setting COOLER_MINTEMP."
   #endif
-  #if !HAS_COOLER
+  #if !HAS_HEATER_COOLER
     #error "DEPENDENCY ERROR: Cannot enable TEMP_SENSOR_COOLER and not COOLER_PIN."
   #endif
 #endif
@@ -154,15 +152,6 @@
 #if (PIDTEMPBED)
   #if !HAS_TEMP_BED
     #error "DEPENDENCY ERROR: Missing setting TEMP_SENSOR_BED for use PIDTEMPBED."
-  #endif
-  #if DISABLED(BED_PID_MAX)
-    #error "DEPENDENCY ERROR: Missing setting BED_PID_MAX."
-  #endif
-  #if DISABLED(BED_PID_DRIVE_MIN)
-    #error "DEPENDENCY ERROR: Missing setting BED_PID_DRIVE_MIN."
-  #endif
-  #if DISABLED(BED_PID_DRIVE_MAX)
-    #error "DEPENDENCY ERROR: Missing setting BED_PID_DRIVE_MAX."
   #endif
   #if DISABLED(DEFAULT_bedKp)
     #error "DEPENDENCY ERROR: Missing setting DEFAULT_bedKp."
@@ -260,4 +249,32 @@
   #endif
 #endif
 
-#endif /* _TEMPERATURE_SANITYCHECK_H_ */
+/**
+ * MK4duo supports only one DHT sensor
+ */
+#if ENABLED(DHT_SENSOR)
+  static_assert(1 >= 0
+    #if TEMP_SENSOR_0 == DHT_TYPE
+      + 1
+    #endif
+    #if TEMP_SENSOR_1 == DHT_TYPE
+      + 1
+    #endif
+    #if TEMP_SENSOR_2 == DHT_TYPE
+      + 1
+    #endif
+    #if TEMP_SENSOR_3 == DHT_TYPE
+      + 1
+    #endif
+    #if TEMP_SENSOR_BED == DHT_TYPE
+      + 1
+    #endif
+    #if TEMP_SENSOR_CHAMBER == DHT_TYPE
+      + 1
+    #endif
+    #if TEMP_SENSOR_COOLER == DHT_TYPE
+      + 1
+    #endif
+    , "DEPENDENCY ERROR: only one DHT sensor is supported!"
+  );
+#endif

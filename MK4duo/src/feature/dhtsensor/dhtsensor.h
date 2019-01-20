@@ -19,6 +19,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * dhtsensor.h
@@ -26,33 +27,33 @@
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
 
-#ifndef _DHTSENSOR_H_
-#define _DHTSENSOR_H_
-
 #if ENABLED(DHT_SENSOR)
 
   // Define types of sensors.
-  #define DHT11 11
-  #define DHT21 21
-  #define DHT22 22
+  enum DHTEnum : uint8_t { DHT11=11, DHT12=12, DHT21=21, DHT22=22 };
 
-  class DhtSensor {
+  // Struct DHT data
+  typedef struct {
+    pin_t   pin;
+    DHTEnum type;
+  } dht_data_t;
+
+  class DHTSensor {
 
     public: /** Constructor */
 
-      DhtSensor(const pin_t _pin, const uint8_t _type);
+      DHTSensor() {}
 
     public: /** Public Parameters */
 
-      pin_t   pin;
-      uint8_t type;
+      static dht_data_t data;
 
-      static float  Temperature,
-                    Humidity;
+      static float      Temperature,
+                        Humidity;
+
     private: /** Private Parameters */
 
-      static millis_t lastReadTime,
-                      lastOperationTime;
+      static uint8_t read_data[5];
 
       static enum SensorState {
         Init,
@@ -63,15 +64,19 @@
   
     public: /** Public Function */
 
-      void init(void);
-      void change_type(const uint8_t dhtType);
-      void print_parameters(void);
-      void spin();
+      static void init();
+      static void factory_parameters();
+      static void change_type(const DHTEnum dhtType);
+      static void print_M305();
+      static void spin();
+
+    private: /** Private Function */
+
+      static float readTemperature();
+      static float readHumidity();
 
   };
 
-  extern DhtSensor dhtsensor;
+  extern DHTSensor dhtsensor;
 
 #endif // ENABLED(DHT_SENSOR)
-
-#endif /* _DHTSENSOR_H_ */

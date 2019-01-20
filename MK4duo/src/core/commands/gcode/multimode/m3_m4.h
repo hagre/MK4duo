@@ -41,7 +41,7 @@
    *      B - Set mode
    */
   void gcode_M3_M4(bool clockwise) {
-    stepper.synchronize();
+    planner.synchronize();
 
     switch (printer.mode) {
 
@@ -73,7 +73,6 @@
 
     } // printer.mode
 
-    mechanics.prepare_move_to_destination();
   }
 
   inline void gcode_M3(void) { gcode_M3_M4(true); }

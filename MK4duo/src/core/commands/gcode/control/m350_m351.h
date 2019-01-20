@@ -57,4 +57,78 @@
     stepper.microstep_readings();
   }
 
-#endif // HAS_MICROSTEPS
+#elif HAS_TRINAMIC
+
+  #define CODE_M350
+
+  inline void gcode_M350(void) {
+
+    if (commands.get_target_tool(350)) return;
+
+    #if DISABLED(DISABLE_M503)
+      // No arguments? Show M350 report.
+      if (!parser.seen("XYZE")) {
+        tmc.print_M350();
+        return;
+      }
+    #endif
+
+    LOOP_XYZE(i) {
+      if (uint16_t value = parser.ushortval(axis_codes[i])) {
+        switch (i) {
+          case X_AXIS:
+            #if AXIS_HAS_TMC(X)
+              stepperX->microsteps(value);
+            #endif
+            #if AXIS_HAS_TMC(X2)
+              stepperX2->microsteps(value);
+            #endif
+            break;
+          case Y_AXIS:
+            #if AXIS_HAS_TMC(Y)
+              stepperY->microsteps(value);
+            #endif
+            #if AXIS_HAS_TMC(Y2)
+              stepperY2->microsteps(value);
+            #endif
+            break;
+          case Z_AXIS:
+            #if AXIS_HAS_TMC(Z)
+              stepperZ->microsteps(value);
+            #endif
+            #if AXIS_HAS_TMC(Z2)
+              stepperZ2->microsteps(value);
+            #endif
+            #if AXIS_HAS_TMC(Z3)
+              stepperZ3->microsteps(value);
+            #endif
+            break;
+          case E_AXIS: {
+            switch (TARGET_EXTRUDER) {
+              #if AXIS_HAS_TMC(E0)
+                case 0: stepperE0->microsteps(value); break;
+              #endif
+              #if AXIS_HAS_TMC(E1)
+                case 1: stepperE1->microsteps(value); break;
+              #endif
+              #if AXIS_HAS_TMC(E2)
+                case 2: stepperE2->microsteps(value); break;
+              #endif
+              #if AXIS_HAS_TMC(E3)
+                case 3: stepperE3->microsteps(value); break;
+              #endif
+              #if AXIS_HAS_TMC(E4)
+                case 4: stepperE4->microsteps(value); break;
+              #endif
+              #if AXIS_HAS_TMC(E5)
+                case 5: stepperE5->microsteps(value); break;
+              #endif
+            }
+          } break;
+        }
+      }
+    }
+
+  }
+
+#endif // HAS_TRINAMIC

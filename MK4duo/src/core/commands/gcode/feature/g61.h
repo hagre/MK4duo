@@ -41,12 +41,12 @@ inline void gcode_G61(void) {
   const uint8_t slot = parser.byteval('S');
 
   if (slot >= NUM_POSITON_SLOTS) {
-    SERIAL_LMV(ER, MSG_INVALID_POS_SLOT, (int)NUM_POSITON_SLOTS);
+    SERIAL_LMV(ER, MSG_INVALID_POS_SLOT, NUM_POSITON_SLOTS);
     return;
   }
 
   SERIAL_MSG(MSG_RESTORING_POS);
-  SERIAL_MV(" S", slot);
+  SERIAL_MV(" S", int(slot));
   SERIAL_MSG("->");
 
   if (parser.seen('F') && parser.value_linear_units() > 0.0)
@@ -66,5 +66,5 @@ inline void gcode_G61(void) {
 
   // finish moves
   mechanics.prepare_move_to_destination();
-  stepper.synchronize();
+  planner.synchronize();
 }

@@ -45,7 +45,8 @@
  * - Manual home positions
  * - Axis steps per unit
  * - Axis feedrate
- * - Axis accelleration
+ * - Axis acceleration
+ * - Axis jerk
  * - Homing feedrate
  * - Hotend offset
  *
@@ -104,15 +105,13 @@
 #define ENDSTOPPULLUP_XMIN    false
 #define ENDSTOPPULLUP_YMIN    false
 #define ENDSTOPPULLUP_ZMIN    false
-#define ENDSTOPPULLUP_Z2MIN   false
-#define ENDSTOPPULLUP_Z3MIN   false
-#define ENDSTOPPULLUP_Z4MIN   false
 #define ENDSTOPPULLUP_XMAX    false
 #define ENDSTOPPULLUP_YMAX    false
 #define ENDSTOPPULLUP_ZMAX    false
+#define ENDSTOPPULLUP_Z2MIN   false
+#define ENDSTOPPULLUP_Z3MIN   false
 #define ENDSTOPPULLUP_Z2MAX   false
 #define ENDSTOPPULLUP_Z3MAX   false
-#define ENDSTOPPULLUP_Z4MAX   false
 #define ENDSTOPPULLUP_ZPROBE  false
 /*****************************************************************************************/
 
@@ -128,15 +127,13 @@
 #define X_MIN_ENDSTOP_LOGIC   false   // set to true to invert the logic of the endstop.
 #define Y_MIN_ENDSTOP_LOGIC   false   // set to true to invert the logic of the endstop.
 #define Z_MIN_ENDSTOP_LOGIC   false   // set to true to invert the logic of the endstop.
-#define Z2_MIN_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
-#define Z3_MIN_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
-#define Z4_MIN_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
 #define X_MAX_ENDSTOP_LOGIC   false   // set to true to invert the logic of the endstop.
 #define Y_MAX_ENDSTOP_LOGIC   false   // set to true to invert the logic of the endstop.
 #define Z_MAX_ENDSTOP_LOGIC   false   // set to true to invert the logic of the endstop.
+#define Z2_MIN_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
+#define Z3_MIN_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
 #define Z2_MAX_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
 #define Z3_MAX_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
-#define Z4_MAX_ENDSTOP_LOGIC  false   // set to true to invert the logic of the endstop.
 #define Z_PROBE_ENDSTOP_LOGIC false   // set to true to invert the logic of the probe.
 /*****************************************************************************************/
 
@@ -180,8 +177,8 @@
 // Z Servo Endstop
 // Remember active servos in Configuration_Feature.h
 // Define nr servo for endstop -1 not define. Servo index start 0
-#define Z_ENDSTOP_SERVO_NR -1
-#define Z_ENDSTOP_SERVO_ANGLES {90,0} // Z Servo Deploy and Stow angles
+#define Z_PROBE_SERVO_NR -1
+#define Z_SERVO_ANGLES {90,0} // Z Servo Deploy and Stow angles
 
 // The "Manual Probe" provides a means to do "Auto" Bed Leveling without a probe.
 // Use Host or LCD for adjust Z height.
@@ -197,6 +194,13 @@
 // The default connector is SERVO 0.
 //#define BLTOUCH
 //#define BLTOUCH_DELAY 375 // (ms) Enable and increase if needed
+
+// If you have TMC2130 or TMC5130 you can use StallGuard2 to probe the bed with the nozzle.
+//
+// CAUTION: This could cause damage to machines that use a lead screw or threaded rod
+//          to move the Z axis. Take extreme care when attempting to enable this feature.
+//
+//#define Z_PROBE_SENSORLESS
 
 // Enable if you have a Z probe mounted on a sled like those designed by Charles Bell.
 //#define Z_PROBE_SLED
@@ -223,9 +227,9 @@
 
 // X and Y axis travel speed between probes, in mm/min
 #define XY_PROBE_SPEED 10000
-// Speed for the first approach when double-probing (with PROBE_DOUBLE_TOUCH)
+// Speed for the first approach when double-probing, in mm/min
 #define Z_PROBE_SPEED_FAST 120
-// Speed for the "accurate" probe of each point
+// Speed for the "accurate" probe of each point, in mm/min
 #define Z_PROBE_SPEED_SLOW 60
 // Z Probe repetitions, median for best result
 #define Z_PROBE_REPETITIONS 1
@@ -233,9 +237,14 @@
 // Enable Z Probe Repeatability test to see how accurate your probe is
 //#define Z_MIN_PROBE_REPEATABILITY_TEST
 
+// Before deploy/stow pause for user confirmation
+//#define PAUSE_BEFORE_DEPLOY_STOW
+
 // Probe Raise options provide clearance for the probe to deploy, stow, and travel.
 #define Z_PROBE_DEPLOY_HEIGHT 15  // Z position for the probe to deploy/stow
 #define Z_PROBE_BETWEEN_HEIGHT 5  // Z position for travel between points
+#define Z_PROBE_AFTER_PROBING  0  // Z position after probing is done
+#define Z_PROBE_LOW_POINT     -2  // Farthest distance below the trigger-point to go before stopping
 
 // For M851 give a range for adjusting the Probe Z Offset
 #define Z_PROBE_OFFSET_RANGE_MIN -50
@@ -249,14 +258,17 @@
 //#define PROBING_HEATERS_OFF       // Turn heaters off when probing
 //#define PROBING_FANS_OFF          // Turn fans off when probing
 
-// Use the LCD controller for bed leveling
-// Requires MESH BED LEVELING or PROBE MANUALLY
+// Add a bed leveling sub-menu for ABL or MBL.
+// Include a guided procedure if manual probing is enabled.
 //#define LCD_BED_LEVELING
-#define LCD_Z_STEP 0.025    // Step size while manually probing Z axis.
-#define LCD_PROBE_Z_RANGE 4 // Z Range centered on Z MIN POS for LCD Z adjustment
+#define MESH_EDIT_Z_STEP 0.025  // Step size while manually probing Z axis.
+#define LCD_PROBE_Z_RANGE 4     // Z Range centered on Z MIN POS for LCD Z adjustment
+//#define MESH_EDIT_MENU        // Add a menu to edit mesh points
 
 // Add a menu item to move between bed corners for manual bed adjustment
 //#define LEVEL_BED_CORNERS
+#define LEVEL_CORNERS_INSET 30    // (mm) An inset for corner leveling
+//#define LEVEL_CENTER_TOO        // Move to the center after the last corner
 /*****************************************************************************************/
 
 
@@ -281,7 +293,7 @@
  * Be sure you have this distance over your Z MAX POS in case.                           *
  *                                                                                       *
  *****************************************************************************************/
-#define MIN_Z_HEIGHT_FOR_HOMING   0
+#define MIN_Z_HEIGHT_FOR_HOMING 0
 /*****************************************************************************************/
 
 
@@ -439,11 +451,6 @@
 //#define AUTO_BED_LEVELING_BILINEAR
 //#define AUTO_BED_LEVELING_3POINT
 
-// Enable detailed logging of G28, G29, G30, M48, etc.
-// Turn on with the command 'M111 S32'.
-// NOTE: Requires a lot of PROGMEM!
-//#define DEBUG_LEVELING_FEATURE
-
 // enable a graphics overly while editing the mesh from auto-level
 //#define MESH_EDIT_GFX_OVERLAY
 
@@ -457,7 +464,6 @@
 #define MESH_TEST_HOTEND_TEMP  200.0  // (c)  Default nozzle temperature for the G26 Mesh Validation Tool.
 #define MESH_TEST_BED_TEMP      60.0  // (c)  Default bed temperature for the G26 Mesh Validation Tool.
 
-/** START MESH BED LEVELING **/
 // Default mesh area is an area with an inset margin on the print area.
 // Below are the macros that are used to define the borders for the mesh
 // area, made available here for specialized needs.
@@ -468,22 +474,10 @@
 
 // After homing all axes ('G28' or 'G28 XYZ') rest Z at Z MIN POS
 //#define MESH_G28_REST_ORIGIN
-/** END MESH BED LEVELING **/
 
 /** START UNIFIED BED LEVELING **/
-// Default mesh area is an area with an inset margin on the print area.
-// Below are the macros that are used to define the borders for the mesh area,
-// made available here for specialized needs, ie dual extruder setup.
-#define UBL_MESH_MIN_X (X_MIN_POS + (MESH_INSET))
-#define UBL_MESH_MAX_X (X_MAX_POS - (MESH_INSET))
-#define UBL_MESH_MIN_Y (Y_MIN_POS + (MESH_INSET))
-#define UBL_MESH_MAX_Y (Y_MAX_POS - (MESH_INSET))
-
 // Sophisticated users prefer no movement of nozzle
 #define UBL_MESH_EDIT_MOVES_Z
-
-// Save the currently active mesh in the current slot on M500
-#define UBL_SAVE_ACTIVE_ON_M500
 
 // When the nozzle is off the mesh, this value is used as the Z-Height correction value.
 //#define UBL_Z_RAISE_WHEN_OFF_MESH 2.5
@@ -593,8 +587,8 @@
 // Feedrates for manual moves along        X,     Y,     Z,  E from panel
 #define MANUAL_FEEDRATE               {50*60, 50*60, 4*60, 10*60}
 // Minimum feedrate
-#define DEFAULT_MINIMUMFEEDRATE       0.0
-#define DEFAULT_MINTRAVELFEEDRATE     0.0
+#define DEFAULT_MIN_FEEDRATE          0.0
+#define DEFAULT_MIN_TRAVEL_FEEDRATE   0.0
 // Minimum planner junction speed. Sets the default minimum speed the planner plans for at the end
 // of the buffer and all stops. This should not be much greater than zero and should only be changed
 // if unwanted behavior is observed on a user's machine when running at very slow speeds.
@@ -603,7 +597,7 @@
 
 
 /*****************************************************************************************
- ******************************** Axis accelleration *************************************
+ ******************************** Axis acceleration **************************************
  *****************************************************************************************/
 //  Maximum start speed for accelerated moves.    X,    Y,  Z,   E0...(per extruder)
 #define DEFAULT_MAX_ACCELERATION              {3000, 3000, 50, 1000, 1000, 1000, 1000}

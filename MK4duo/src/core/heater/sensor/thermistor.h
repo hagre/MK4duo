@@ -67,11 +67,6 @@
 #define T8_R25    100000.0  // Resistance in Ohms @ 25°C
 #define T8_BETA     3960.0  // Beta Value (K)
 
-// 9 - User config
-#define T9_NAME   "User conf"
-#define T9_R25    100000.0  // Resistance in Ohms @ 25°C
-#define T9_BETA     4036.0  // Beta Value (K)
-
 #define _THERMISTOR_NAME_IS(n)  T ## n ## _NAME
 #define _THERMISTOR_R25_IS(n)   T ## n ## _R25
 #define _THERMISTOR_BETA_IS(n)  T ## n ## _BETA
@@ -80,48 +75,52 @@
 #define THERMISTOR_R25_IS(n)  _THERMISTOR_R25_IS(n)
 #define THERMISTOR_BETA_IS(n) _THERMISTOR_BETA_IS(n)
 
-#if ENABLED(HEATER_0_USES_THERMISTOR)
+#if TEMP_SENSOR_0 > 0 && TEMP_SENSOR_0 < 10
   #define HOT0_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_0)
   #define HOT0_R25  THERMISTOR_R25_IS(TEMP_SENSOR_0)
   #define HOT0_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_0)
 #endif
-#if ENABLED(HEATER_1_USES_THERMISTOR)
+#if TEMP_SENSOR_1 > 0 && TEMP_SENSOR_1 < 10
   #define HOT1_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_1)
   #define HOT1_R25  THERMISTOR_R25_IS(TEMP_SENSOR_1)
   #define HOT1_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_1)
 #endif
-#if ENABLED(HEATER_2_USES_THERMISTOR)
+#if TEMP_SENSOR_2 > 0 && TEMP_SENSOR_2 < 10
   #define HOT2_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_2)
   #define HOT2_R25  THERMISTOR_R25_IS(TEMP_SENSOR_2)
   #define HOT2_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_2)
 #endif
-#if ENABLED(HEATER_3_USES_THERMISTOR)
+#if TEMP_SENSOR_3 > 0 && TEMP_SENSOR_3 < 10
   #define HOT3_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_3)
   #define HOT3_R25  THERMISTOR_R25_IS(TEMP_SENSOR_3)
   #define HOT3_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_3)
 #endif
-#if ENABLED(BED_USES_THERMISTOR)
+#if TEMP_SENSOR_BED > 0 && TEMP_SENSOR_BED < 10
   #define BED_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_BED)
   #define BED_R25  THERMISTOR_R25_IS(TEMP_SENSOR_BED)
   #define BED_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_BED)
 #endif
-#if ENABLED(CHAMBER_USES_THERMISTOR)
+#if TEMP_SENSOR_CHAMBER > 0 && TEMP_SENSOR_CHAMBER < 10
   #define CHAMBER_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_CHAMBER)
   #define CHAMBER_R25  THERMISTOR_R25_IS(TEMP_SENSOR_CHAMBER)
   #define CHAMBER_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_CHAMBER)
 #endif
-#if ENABLED(COOLER_USES_THERMISTOR)
+#if TEMP_SENSOR_COOLER > 0 && TEMP_SENSOR_COOLER < 10
   #define COOLER_NAME THERMISTOR_NAME_IS(TEMP_SENSOR_COOLER)
   #define COOLER_R25  THERMISTOR_R25_IS(TEMP_SENSOR_COOLER)
   #define COOLER_BETA THERMISTOR_BETA_IS(TEMP_SENSOR_COOLER)
 #endif
 
-#if TEMP_SENSOR_0 == -3
+#if TEMP_SENSOR_0 == -4
   #define HOT0_NAME "MAX31855"
   #define HOT0_R25  0.0
   #define HOT0_BETA 0.0
-#elif TEMP_SENSOR_0 == -2
+#elif TEMP_SENSOR_0 == -3
   #define HOT0_NAME "MAX6675"
+  #define HOT0_R25  0.0
+  #define HOT0_BETA 0.0
+#elif TEMP_SENSOR_0 == -2
+  #define HOT0_NAME "AD8495"
   #define HOT0_R25  0.0
   #define HOT0_BETA 0.0
 #elif TEMP_SENSOR_0 == -1
@@ -142,12 +141,16 @@
   #define HOT0_BETA 0.0
 #endif
 
-#if TEMP_SENSOR_1 == -3
+#if TEMP_SENSOR_1 == -4
   #define HOT1_NAME "MAX31855"
   #define HOT1_R25  0.0
   #define HOT1_BETA 0.0
-#elif TEMP_SENSOR_1 == -2
+#elif TEMP_SENSOR_1 == -3
   #define HOT1_NAME "MAX6675"
+  #define HOT1_R25  0.0
+  #define HOT1_BETA 0.0
+#elif TEMP_SENSOR_1 == -2
+  #define HOT1_NAME "AD8495"
   #define HOT1_R25  0.0
   #define HOT1_BETA 0.0
 #elif TEMP_SENSOR_1 == -1
@@ -168,12 +171,16 @@
   #define HOT1_BETA 0.0
 #endif
 
-#if TEMP_SENSOR_2 == -3
+#if TEMP_SENSOR_2 == -4
   #define HOT2_NAME "MAX31855"
   #define HOT2_R25  0.0
   #define HOT2_BETA 0.0
-#elif TEMP_SENSOR_2 == -2
+#elif TEMP_SENSOR_2 == -3
   #define HOT2_NAME "MAX6675"
+  #define HOT2_R25  0.0
+  #define HOT2_BETA 0.0
+#elif TEMP_SENSOR_2 == -2
+  #define HOT2_NAME "AD8495"
   #define HOT2_R25  0.0
   #define HOT2_BETA 0.0
 #elif TEMP_SENSOR_2 == -1
@@ -194,12 +201,16 @@
   #define HOT2_BETA 0.0
 #endif
 
-#if TEMP_SENSOR_3 == -3
+#if TEMP_SENSOR_3 == -4
   #define HOT3_NAME "MAX31855"
   #define HOT3_R25  0.0
   #define HOT3_BETA 0.0
-#elif TEMP_SENSOR_3 == -2
+#elif TEMP_SENSOR_3 == -3
   #define HOT3_NAME "MAX6675"
+  #define HOT3_R25  0.0
+  #define HOT3_BETA 0.0
+#elif TEMP_SENSOR_3 == -2
+  #define HOT3_NAME "AD8495"
   #define HOT3_R25  0.0
   #define HOT3_BETA 0.0
 #elif TEMP_SENSOR_3 == -1
@@ -220,12 +231,16 @@
   #define HOT3_BETA 0.0
 #endif
 
-#if TEMP_SENSOR_BED == -3
+#if TEMP_SENSOR_BED == -4
   #define BED_NAME "MAX31855"
   #define BED_R25  0.0
   #define BED_BETA 0.0
-#elif TEMP_SENSOR_BED == -2
+#elif TEMP_SENSOR_BED == -3
   #define BED_NAME "MAX6675"
+  #define BED_R25  0.0
+  #define BED_BETA 0.0
+#elif TEMP_SENSOR_BED == -2
+  #define BED_NAME "AD8495"
   #define BED_R25  0.0
   #define BED_BETA 0.0
 #elif TEMP_SENSOR_BED == -1
@@ -246,12 +261,16 @@
   #define BED_BETA 0.0
 #endif
 
-#if TEMP_SENSOR_CHAMBER == -3
+#if TEMP_SENSOR_CHAMBER == -4
   #define CHAMBER_NAME "MAX31855"
   #define CHAMBER_R25  0.0
   #define CHAMBER_BETA 0.0
-#elif TEMP_SENSOR_CHAMBER == -2
+#elif TEMP_SENSOR_CHAMBER == -3
   #define CHAMBER_NAME "MAX6675"
+  #define CHAMBER_R25  0.0
+  #define CHAMBER_BETA 0.0
+#elif TEMP_SENSOR_CHAMBER == -2
+  #define CHAMBER_NAME "AD8495"
   #define CHAMBER_R25  0.0
   #define CHAMBER_BETA 0.0
 #elif TEMP_SENSOR_CHAMBER == -1
@@ -272,12 +291,16 @@
   #define CHAMBER_BETA 0.0
 #endif
 
-#if TEMP_SENSOR_COOLER == -3
+#if TEMP_SENSOR_COOLER == -4
   #define COOLER_NAME "MAX31855"
   #define COOLER_R25  0.0
   #define COOLER_BETA 0.0
-#elif TEMP_SENSOR_COOLER == -2
+#elif TEMP_SENSOR_COOLER == -3
   #define COOLER_NAME "MAX6675"
+  #define COOLER_R25  0.0
+  #define COOLER_BETA 0.0
+#elif TEMP_SENSOR_COOLER == -2
+  #define COOLER_NAME "AD8495"
   #define COOLER_R25  0.0
   #define COOLER_BETA 0.0
 #elif TEMP_SENSOR_COOLER == -1
@@ -298,7 +321,7 @@
   #define COOLER_BETA 0.0
 #endif
 
-#if HEATER_USES_AMPLIFIER
+#if ENABLED(SUPPORT_AMPLIFIER)
   #include "thermistoramplifier.h"
 #endif
 

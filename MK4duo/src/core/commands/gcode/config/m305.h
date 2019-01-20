@@ -42,6 +42,7 @@
    *    L[int]    ADC low offset correction
    *    O[int]    ADC high offset correction
    *    P[int]    Sensor Pin
+   *    T[int]    Sensor Type
    *
    *  D DHT parameters
    *    S[int]    Type Sensor
@@ -52,20 +53,34 @@
 
     #if ENABLED(DHT_SENSOR)
       if (parser.seen('D')) {
-        dhtsensor.pin = parser.intval('P', DHT_DATA_PIN);
+        #if DISABLED(DISABLE_M503)
+          // No arguments? Show M305 report.
+          if (!parser.seen("PS")) {
+            dhtsensor.print_M305();
+            return;
+          }
+        #endif
+        dhtsensor.data.pin = parser.intval('P', DHT_DATA_PIN);
         if (parser.seen('S'))
-          dhtsensor.change_type(parser.value_int());
+          dhtsensor.change_type(DHTEnum(parser.value_int()));
         dhtsensor.init();
-        dhtsensor.print_parameters();
         return;
       }
     #endif
 
-    int8_t h = parser.seen('H') ? parser.value_int() : 0; // hotend being updated
+    int8_t h = 0;
 
     if (!commands.get_target_heater(h)) return;
 
     Heater *act = &heaters[h];
+
+    #if DISABLED(DISABLE_M503)
+      // No arguments? Show M305 report.
+      if (!parser.seen("ABCRLOTP")) {
+        act->print_M305();
+        return;
+      }
+    #endif
 
     act->sensor.r25           = parser.floatval('A', act->sensor.r25);
     act->sensor.beta          = parser.floatval('B', act->sensor.beta);
@@ -73,13 +88,14 @@
     act->sensor.pullupR       = parser.floatval('R', act->sensor.pullupR);
     act->sensor.adcLowOffset  = parser.intval('L', act->sensor.adcLowOffset);
     act->sensor.adcHighOffset = parser.intval('O', act->sensor.adcHighOffset);
+    act->sensor.type          = parser.intval('T', act->sensor.type);
 
     if (parser.seen('P')) {
       // Put off the heaters
       act->setTarget(0);
 
-      const pin_t new_pin = parser.value_pin();
-      if (WITHIN(new_pin, 0 , MAX_ANALOG_PIN_NUMBER)) {
+      const pin_t new_pin = parser.analog_value_pin();
+      if (new_pin != NoPin) {
         const pin_t old_pin = act->sensor.pin;
         act->sensor.pin = new_pin;
         HAL::AdcChangePin(old_pin, act->sensor.pin);
@@ -87,7 +103,6 @@
     }
 
     act->sensor.CalcDerivedParameters();
-    act->sensor_print_parameters();
 
  }
 

@@ -19,15 +19,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * sanitycheck.h
  *
  * Test configuration values for errors at compile-time.
  */
-
-#ifndef _BED_LEVELING_SANITYCHECK_H_
-#define _BED_LEVELING_SANITYCHECK_H_
 
 /**
  * Allow only one bed leveling option to be defined
@@ -63,12 +61,10 @@ static_assert(1 >= 0
     #error "DEPENDENCY ERROR: AUTO_BED_LEVELING_UBL does not yet support SCARA printers."
   #elif DISABLED(EEPROM_SETTINGS)
     #error "DEPENDENCY ERROR: AUTO_BED_LEVELING_UBL requires EEPROM_SETTINGS. Please update your configuration."
-  #elif ENABLED(EEPROM_SD)
-    #error "DEPENDENCY ERROR: AUTO_BED_LEVELING_UBL requires EEPROM on SPI, I2C or FLASH, not EEPROM_SD."
   #elif !WITHIN(GRID_MAX_POINTS_X, 3, 15) || !WITHIN(GRID_MAX_POINTS_Y, 3, 15)
     #error "DEPENDENCY ERROR: GRID_MAX_POINTS_[XY] must be a whole number between 3 and 15."
   #endif
-  #if ENABLED(MESH_EDIT_GFX_OVERLAY) && !ENABLED(DOGLCD)
+  #if ENABLED(MESH_EDIT_GFX_OVERLAY) && !HAS_GRAPHICAL_LCD
     #error "DEPENDENCY ERROR: MESH_EDIT_GFX_OVERLAY requires a DOGLCD."
   #endif
 #endif
@@ -77,7 +73,7 @@ static_assert(1 >= 0
  * Mesh Bed Leveling
  */
 #if ENABLED(MESH_BED_LEVELING)
-  #if IS_DELTA
+  #if MECH(DELTA)
     #error "DEPENDENCY ERROR: MESH_BED_LEVELING does not yet support DELTA printers."
   #elif IS_SCARA
     #error "DEPENDENCY ERROR: Only AUTO_BED_LEVELING_BILINEAR currently supports SCARA bed leveling."
@@ -100,5 +96,3 @@ static_assert(1 >= 0
 #if ENABLED(MESH_EDIT_GFX_OVERLAY) && (DISABLED(AUTO_BED_LEVELING_UBL) || DISABLED(DOGLCD))
   #error "DEPENDENCY ERROR: MESH_EDIT_GFX_OVERLAY requires AUTO_BED_LEVELING_UBL and a Graphical LCD."
 #endif
-
-#endif /* _BED_LEVELING_SANITYCHECK_H_ */

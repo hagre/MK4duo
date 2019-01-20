@@ -22,57 +22,39 @@
 
 #include "../../../MK4duo.h"
 
+#define STATS_EEPROM_ADDRESS  0x32
+#define STATS_UPDATE_INTERVAL   10
+#define STATS_SAVE_INTERVAL   3600
+
 PrintCounter print_job_counter;
+
+/** Private Parameters */
+const char statistics_version[3] = "MK";
 
 printStatistics PrintCounter::data;
 
-const uint16_t  PrintCounter::updateInterval  = 10,
-                PrintCounter::saveInterval    = (SD_CFG_SECONDS);
-
 millis_t PrintCounter::lastDuration;
-bool PrintCounter::loaded = false;
 
-millis_t PrintCounter::deltaDuration() {
-  #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("deltaDuration"));
-  #endif
-
-  millis_t tmp = lastDuration;
-  lastDuration = duration();
-  return lastDuration - tmp;
-}
-
+/** Public Function */
 void PrintCounter::initStats() {
   #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("initStats"));
+    debug(PSTR("initStats"));
   #endif
 
-  data = { 0, 0, 0, 0, 0.0 };
-}
+  data.totalPrints    = 0;
+  data.finishedPrints = 0;
+  data.timePrint      = 0;
+  data.longestPrint   = 0;
+  data.timePowerOn    = 0;
+  data.filamentUsed   = 0.0;
 
-void PrintCounter::loadStats() {
-  #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("loadStats"));
+  #if HAS_POWER_CONSUMPTION_SENSOR
+    data.consumptionHour = 0;
   #endif
 
-  #if HAS_SDSUPPORT && ENABLED(SD_SETTINGS)
-    // Checks if the SDCARD is inserted
-    if(IS_SD_INSERTED && !IS_SD_PRINTING) {
-      card.RetrieveSettings(true);
-    }
-  #endif
-}
-
-void PrintCounter::saveStats() {
-  #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("saveStats"));
-  #endif
-
-  // Refuses to save data is object is not loaded
-  if (!loaded) return;
-
-  #if HAS_SDSUPPORT && ENABLED(SD_SETTINGS)
-    card.StoreSettings();
+  #if HAS_EEPROM
+    memorystore.write_data(STATS_EEPROM_ADDRESS, (uint8_t*)&statistics_version, sizeof(statistics_version));
+    memorystore.access_write();
   #endif
 }
 
@@ -81,69 +63,102 @@ void PrintCounter::showStats() {
   duration_t elapsed;
 
   SERIAL_MSG(MSG_STATS);
-  SERIAL_MV("Total: ", data.totalPrints);
-  SERIAL_MV(", Finished: ", data.finishedPrints);
-  SERIAL_MSG(", Failed: "); // Note: Removes 1 from failures with an active counter
+
+  SERIAL_MV("Total:", data.totalPrints);
+  SERIAL_MV(", Finished:", data.finishedPrints);
+  SERIAL_MSG(", Failed:");
   SERIAL_EV (data.totalPrints - data.finishedPrints -
             ((isRunning() || isPaused()) ? 1 : 0));
 
   SERIAL_MSG(MSG_STATS);
-  elapsed = data.printTime;
+
+  elapsed = data.timePrint;
   elapsed.toString(buffer);
-  SERIAL_MT("Total print time: ", buffer);
-  elapsed = data.printer_usage;
+  SERIAL_MT("Total print time:", buffer);
+
+  elapsed = data.longestPrint;
   elapsed.toString(buffer);
-  SERIAL_EMT(", Power on time: ", buffer);
+  SERIAL_EMT(", Longest job:", buffer);
 
   SERIAL_MSG(MSG_STATS);
 
-  uint16_t  kmeter = (long)data.filamentUsed / 1000 / 1000,
-            meter = ((long)data.filamentUsed / 1000) % 1000,
-            centimeter = ((long)data.filamentUsed / 10) % 100,
-            millimeter = ((long)data.filamentUsed) % 10;
-  sprintf_P(buffer, PSTR("%uKm %um %ucm %umm"), kmeter, meter, centimeter, millimeter);
+  elapsed = data.timePowerOn;
+  elapsed.toString(buffer);
+  SERIAL_EMT("Power on time:", buffer);
 
-  SERIAL_EMT("Filament used: ", buffer);
+  SERIAL_MSG(MSG_STATS);
+
+  lengthtoString(buffer, data.filamentUsed);
+  SERIAL_EMT("Filament used:", buffer);
+
+  #if HAS_POWER_CONSUMPTION_SENSOR
+    SERIAL_MSG(MSG_STATS);
+    SERIAL_MV(CFG, "Watt/h consumed:", data.consumptionHour);
+    SERIAL_EM(" Wh");
+  #endif
+
+}
+
+void PrintCounter::saveStats() {
+  #if ENABLED(DEBUG_PRINTCOUNTER)
+    debug(PSTR("saveStats"));
+  #endif
+
+  // Refuses to save data is object is not loaded
+  if (!printer.IsStatisticsLoaded()) return;
+
+  #if HAS_EEPROM
+    // Saves the struct to EEPROM
+    memorystore.write_data(STATS_EEPROM_ADDRESS + sizeof(statistics_version), (uint8_t*)&data, sizeof(data));
+    memorystore.access_write();
+  #endif
+
 }
 
 void PrintCounter::tick() {
 
-  static millis_t update_last = millis(),
-                  config_last = millis();
+  static millis_t update_next = 0,
+                  eeprom_next = 0;
 
   millis_t now = millis();
 
-  // Trying to get the amount of calculations down to the bare min
-  const static uint16_t interval = updateInterval * 1000;
-
-  if (now - update_last >= interval) {
+  if (ELAPSED(now, update_next)) {
     #if ENABLED(DEBUG_PRINTCOUNTER)
       debug(PSTR("tick"));
     #endif
-    data.printer_usage += updateInterval;
-    data.printTime += deltaDuration();
-    update_last = now;
+    data.timePrint += deltaDuration();
+    data.timePowerOn += STATS_UPDATE_INTERVAL;
+    update_next = now + (STATS_UPDATE_INTERVAL * 1000);
   }
 
-  #if HAS_SDSUPPORT && ENABLED(SD_SETTINGS)
-    const static millis_t sdinterval = saveInterval * 1000;
-    if (!loaded) {
-      loadStats();
-      saveStats();
-    }
-    else if (now - config_last >= sdinterval) {
-      config_last = now;
-      saveStats();
-    }
+  if (ELAPSED(now, eeprom_next)) {
+    eeprom_next = now + (STATS_SAVE_INTERVAL * 1000);
+    saveStats();
+  }
+
+}
+
+void PrintCounter::incFilamentUsed(float const &amount) {
+  #if ENABLED(DEBUG_PRINTCOUNTER)
+    debug(PSTR("incFilamentUsed"));
   #endif
+
+  // Refuses to update data if object is not loaded
+  if (!printer.IsStatisticsLoaded()) return;
+
+  data.filamentUsed += amount; // mm
 }
 
 bool PrintCounter::start() {
   #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("start"));
+    debug(PSTR("start"));
   #endif
 
   bool paused = isPaused();
+
+  #if HAS_POWER_CONSUMPTION_SENSOR
+    powerManager.startpower = data.consumptionHour;
+  #endif
 
   if (super::start()) {
     if (!paused) {
@@ -157,12 +172,16 @@ bool PrintCounter::start() {
 
 bool PrintCounter::stop() {
   #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("stop"));
+    debug(PSTR("stop"));
   #endif
 
   if (super::stop()) {
     data.finishedPrints++;
-    data.printTime += deltaDuration();
+    data.timePrint += deltaDuration();
+
+    if (duration() > data.longestPrint)
+      data.longestPrint = duration();
+
     saveStats();
     return true;
   }
@@ -171,7 +190,7 @@ bool PrintCounter::stop() {
 
 void PrintCounter::reset() {
   #if ENABLED(DEBUG_PRINTCOUNTER)
-    PrintCounter::debug(PSTR("stop"));
+    debug(PSTR("stop"));
   #endif
 
   super::reset();
@@ -187,3 +206,39 @@ void PrintCounter::reset() {
   }
 
 #endif
+
+/** Private Function */
+void PrintCounter::loadStats() {
+  #if ENABLED(DEBUG_PRINTCOUNTER)
+    debug(PSTR("loadStats"));
+  #endif
+
+  #if HAS_EEPROM
+
+    // Check if the EEPROM block is initialized
+    char value[3];
+    memorystore.access_read();
+
+    memorystore.read_data(STATS_EEPROM_ADDRESS, (uint8_t*)&value, sizeof(value));
+
+    if (strncmp(statistics_version, value, 2) != 0)
+      initStats();
+    else
+      memorystore.read_data(STATS_EEPROM_ADDRESS + sizeof(statistics_version), (uint8_t*)&data, sizeof(printStatistics));
+
+  #endif
+
+  printer.setStatisticsLoaded(true);
+
+}
+
+/** Protected Function */
+millis_t PrintCounter::deltaDuration() {
+  #if ENABLED(DEBUG_PRINTCOUNTER)
+    debug(PSTR("deltaDuration"));
+  #endif
+
+  millis_t tmp = lastDuration;
+  lastDuration = duration();
+  return lastDuration - tmp;
+}

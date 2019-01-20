@@ -26,9 +26,9 @@
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
 
-void out_of_range_error(const char* p_edge) {
+void out_of_range_error(PGM_P p_edge) {
   SERIAL_MSG("?Probe ");
-  SERIAL_PS(p_edge);
+  SERIAL_PGM(p_edge);
   SERIAL_EM(" position out of range.");
 }
 
@@ -88,7 +88,7 @@ void out_of_range_error(const char* p_edge) {
  *  L  Set the Left limit of the probing grid
  *  R  Set the Right limit of the probing grid
  *
- * Parameters with DEBUG_LEVELING_FEATURE only:
+ * Parameters with DEBUG_FEATURE only:
  *
  *  C  Make a totally fake grid with no actual probing.
  *     For use in testing when no probing is possible.
@@ -124,37 +124,44 @@ void out_of_range_error(const char* p_edge) {
  */
 inline void gcode_G29(void) {
 
+  #if ENABLED(DEBUG_FEATURE) || ENABLED(PROBE_MANUALLY)
+    const bool seenQ = parser.seen('Q');
+  #else
+    constexpr bool seenQ = false;
+  #endif
+
   // G29 Q is also available if debugging
-  #if ENABLED(DEBUG_LEVELING_FEATURE)
-    const bool query = parser.seen('Q');
+  #if ENABLED(DEBUG_FEATURE)
     const uint8_t old_debug_flags = printer.getDebugFlags();
-    if (query) printer.debugSet(debug_leveling);
-    if (printer.debugLeveling()) {
+    if (seenQ) printer.debug_flag.feature = true;
+    if (printer.debugFeature()) {
       DEBUG_POS(">>> G29", mechanics.current_position);
       mechanics.log_machine_info();
     }
     printer.setDebugLevel(old_debug_flags);
     #if DISABLED(PROBE_MANUALLY)
-      if (query) return;
+      if (seenQ) return;
     #endif
   #endif
 
   #if ENABLED(PROBE_MANUALLY)
-    const bool seenA = parser.seen('A'), seenQ = parser.seen('Q'), no_action = seenA || seenQ;
+    const bool seenA = parser.seen('A');
+  #else
+    constexpr bool seenA = false;
   #endif
 
-  #if ENABLED(DEBUG_LEVELING_FEATURE) && DISABLED(PROBE_MANUALLY)
+  const bool no_action = seenA || seenQ;
+
+  #if ENABLED(DEBUG_FEATURE) && DISABLED(PROBE_MANUALLY)
     const bool faux = parser.boolval('C');
-  #elif ENABLED(PROBE_MANUALLY)
-    const bool faux = no_action;
   #else
-    bool constexpr faux = false;
+    const bool faux = no_action;
   #endif
 
   #if MECH(DELTA)
-    if (!bedlevel.g29_in_progress) {
+    if (!bedlevel.flag.g29_in_progress) {
       // Homing
-      mechanics.home(true);
+      mechanics.home();
       mechanics.do_blocking_move_to_z(_Z_PROBE_DEPLOY_HEIGHT, mechanics.homing_feedrate_mm_s[Z_AXIS]);
     }
   #else
@@ -170,7 +177,7 @@ inline void gcode_G29(void) {
   #endif
 
   ABL_VAR int verbose_level = 0;
-  ABL_VAR float xProbe = 0.0, yProbe = 0.0, measured_z = 0.0;
+  ABL_VAR float xProbe = 0, yProbe = 0, measured_z = 0;
   ABL_VAR bool dryrun = false, abl_should_enable = false;
 
   #if ENABLED(PROBE_MANUALLY) || ENABLED(AUTO_BED_LEVELING_LINEAR)
@@ -206,9 +213,9 @@ inline void gcode_G29(void) {
     #endif
 
     #if ENABLED(AUTO_BED_LEVELING_LINEAR)
-      ABL_VAR int abl2 = 0;
+      ABL_VAR int abl_points = 0;
     #elif ENABLED(PROBE_MANUALLY)
-      int constexpr abl2 = GRID_MAX_POINTS;
+      int constexpr abl_points = GRID_MAX_POINTS;
     #endif
 
     #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
@@ -227,7 +234,7 @@ inline void gcode_G29(void) {
   #elif ENABLED(AUTO_BED_LEVELING_3POINT)
 
     #if ENABLED(PROBE_MANUALLY)
-      int constexpr abl2 = 3; // used to show total points
+      int constexpr abl_points = 3; // used to show total points
     #endif
 
     // Probe at 3 arbitrary points
@@ -247,13 +254,13 @@ inline void gcode_G29(void) {
   /**
    * On the initial G29 fetch command parameters.
    */
-  if (!bedlevel.g29_in_progress) {
+  if (!bedlevel.flag.g29_in_progress) {
 
     #if ENABLED(PROBE_MANUALLY) || ENABLED(AUTO_BED_LEVELING_LINEAR)
       abl_probe_index = -1;
     #endif
 
-    abl_should_enable = bedlevel.leveling_active;
+    abl_should_enable = bedlevel.flag.leveling_active;
 
     #if HAS_NEXTION_MANUAL_BED
       Nextion_ProbeOn();
@@ -339,7 +346,7 @@ inline void gcode_G29(void) {
         return;
       }
 
-      abl2 = abl_grid_points_x * abl_grid_points_y;
+      abl_points = abl_grid_points_x * abl_grid_points_y;
       mean = 0.0;
 
     #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
@@ -357,32 +364,18 @@ inline void gcode_G29(void) {
       front_probe_bed_position = parser.seenval('F') ? (int)NATIVE_Y_POSITION(parser.value_linear_units()) : FRONT_PROBE_BED_POSITION;
       back_probe_bed_position  = parser.seenval('B') ? (int)NATIVE_Y_POSITION(parser.value_linear_units()) : BACK_PROBE_BED_POSITION;
 
-      const bool left_out_l   = left_probe_bed_position < MIN_PROBE_X,
-                 left_out     = left_out_l || left_probe_bed_position > right_probe_bed_position - (MIN_PROBE_EDGE),
-                 right_out_r  = right_probe_bed_position > MAX_PROBE_X,
-                 right_out    = right_out_r || right_probe_bed_position < left_probe_bed_position + MIN_PROBE_EDGE,
-                 front_out_f  = front_probe_bed_position < MIN_PROBE_Y,
-                 front_out    = front_out_f || front_probe_bed_position > back_probe_bed_position - (MIN_PROBE_EDGE),
-                 back_out_b   = back_probe_bed_position > MAX_PROBE_Y,
-                 back_out     = back_out_b || back_probe_bed_position < front_probe_bed_position + MIN_PROBE_EDGE;
-
-      if (left_out || right_out || front_out || back_out) {
-        if (left_out) {
-          out_of_range_error(PSTR("(L)eft"));
-          left_probe_bed_position = left_out_l ? MIN_PROBE_X : right_probe_bed_position - (MIN_PROBE_EDGE);
-        }
-        if (right_out) {
-          out_of_range_error(PSTR("(R)ight"));
-          right_probe_bed_position = right_out_r ? MAX_PROBE_X : left_probe_bed_position + MIN_PROBE_EDGE;
-        }
-        if (front_out) {
-          out_of_range_error(PSTR("(F)ront"));
-          front_probe_bed_position = front_out_f ? MIN_PROBE_Y : back_probe_bed_position - (MIN_PROBE_EDGE);
-        }
-        if (back_out) {
-          out_of_range_error(PSTR("(B)ack"));
-          back_probe_bed_position = back_out_b ? MAX_PROBE_Y : front_probe_bed_position + MIN_PROBE_EDGE;
-        }
+      if (
+        #if IS_SCARA || MECH(DELTA)
+             !mechanics.position_is_reachable_by_probe(left_probe_bed_position, 0)
+          || !mechanics.position_is_reachable_by_probe(right_probe_bed_position, 0)
+          || !mechanics.position_is_reachable_by_probe(0, front_probe_bed_position)
+          || !mechanics.position_is_reachable_by_probe(0, back_probe_bed_position)
+        #else
+             !mechanics.position_is_reachable_by_probe(left_probe_bed_position, front_probe_bed_position)
+          || !mechanics.position_is_reachable_by_probe(right_probe_bed_position, back_probe_bed_position)
+        #endif
+      ) {
+        SERIAL_EM("? (L,R,F,B) out of bounds.");
         return;
       }
 
@@ -398,16 +391,16 @@ inline void gcode_G29(void) {
       SERIAL_EOL();
     }
 
-    stepper.synchronize();
+    planner.synchronize();
 
     // Disable auto bed leveling during G29.
     // Be formal so G29 can be done successively without G28.
-    bedlevel.leveling_active = false;
+    if (!no_action) bedlevel.set_bed_leveling_enabled(false);
 
     #if HAS_BED_PROBE
       // Deploy the probe. Probe will raise if needed.
       if (DEPLOY_PROBE()) {
-        bedlevel.leveling_active = abl_should_enable;
+        bedlevel.set_bed_leveling_enabled(abl_should_enable);
         return;
       }
     #endif
@@ -443,8 +436,8 @@ inline void gcode_G29(void) {
 
     #if ENABLED(AUTO_BED_LEVELING_3POINT)
 
-      #if ENABLED(DEBUG_LEVELING_FEATURE)
-        if (printer.debugLeveling()) SERIAL_EM("> 3-point Leveling");
+      #if ENABLED(DEBUG_FEATURE)
+        if (printer.debugFeature()) SERIAL_EM("> 3-point Leveling");
       #endif
 
       // Probe at 3 arbitrary points
@@ -452,7 +445,7 @@ inline void gcode_G29(void) {
 
     #endif // AUTO_BED_LEVELING_3POINT
 
-  } // !bedlevel.g29_in_progress
+  } // !bedlevel.flag.g29_in_progress
 
   #if ENABLED(PROBE_MANUALLY)
 
@@ -460,28 +453,28 @@ inline void gcode_G29(void) {
     // On the first probe this will be incremented to 0.
     if (!no_action) {
       ++abl_probe_index;
-      bedlevel.g29_in_progress = true;
+      bedlevel.flag.g29_in_progress = true;
     }
 
     // Abort current G29 procedure, go back to idle state
-    if (seenA && bedlevel.g29_in_progress) {
+    if (seenA && bedlevel.flag.g29_in_progress) {
       SERIAL_EM("Manual G29 aborted");
       #if HAS_SOFTWARE_ENDSTOPS
         endstops.setSoftEndstop(enable_soft_endstops);
       #endif
-      bedlevel.leveling_active = abl_should_enable;
-      bedlevel.g29_in_progress = false;
-      #if ENABLED(LCD_BED_LEVELING) && ENABLED(ULTRA_LCD)
-        lcd_wait_for_move = false;
+      bedlevel.set_bed_leveling_enabled(abl_should_enable);
+      bedlevel.flag.g29_in_progress = false;
+      #if ENABLED(LCD_BED_LEVELING) && HAS_SPI_LCD
+        lcdui.wait_for_bl_move = false;
       #endif
     }
 
     // Query G29 status
     if (verbose_level || seenQ) {
       SERIAL_MSG("Manual G29 ");
-      if (bedlevel.g29_in_progress) {
-        SERIAL_MV("point ", min(abl_probe_index + 1, abl2));
-        SERIAL_EMV(" of ", abl2);
+      if (bedlevel.flag.g29_in_progress) {
+        SERIAL_MV("point ", MIN(abl_probe_index + 1, abl_points));
+        SERIAL_EMV(" of ", abl_points);
       }
       else
         SERIAL_EM("idle");
@@ -490,12 +483,19 @@ inline void gcode_G29(void) {
     if (no_action) return;
 
     if (abl_probe_index == 0) {
-      // For the initial G29 save software endstop state
+      // For the initial G29 S2 save software endstop state
       #if HAS_SOFTWARE_ENDSTOPS
         enable_soft_endstops = endstops.isSoftEndstop();
       #endif
+      // Move close to the bed before the first point
+      mechanics.do_blocking_move_to_z(0);
     }
     else {
+
+      #if ENABLED(AUTO_BED_LEVELING_LINEAR) || ENABLED(AUTO_BED_LEVELING_3POINT)
+        const uint16_t index = abl_probe_index - 1;
+      #endif
+
       // For G29 after adjusting Z.
       // Save the previous Z before going to the next point
       measured_z = mechanics.current_position[Z_AXIS];
@@ -503,28 +503,28 @@ inline void gcode_G29(void) {
       #if ENABLED(AUTO_BED_LEVELING_LINEAR)
 
         mean += measured_z;
-        eqnBVector[abl_probe_index] = measured_z;
-        eqnAMatrix[abl_probe_index + 0 * abl2] = xProbe;
-        eqnAMatrix[abl_probe_index + 1 * abl2] = yProbe;
-        eqnAMatrix[abl_probe_index + 2 * abl2] = 1;
+        eqnBVector[index] = measured_z;
+        eqnAMatrix[index + 0 * abl_points] = xProbe;
+        eqnAMatrix[index + 1 * abl_points] = yProbe;
+        eqnAMatrix[index + 2 * abl_points] = 1;
 
         incremental_LSF(&lsf_results, xProbe, yProbe, measured_z);
+
+      #elif ENABLED(AUTO_BED_LEVELING_3POINT)
+
+        points[index].z = measured_z;
 
       #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
         abl.z_values[xCount][yCount] = measured_z + zoffset;
 
-        #if ENABLED(DEBUG_LEVELING_FEATURE)
-          if (printer.debugLeveling()) {
+        #if ENABLED(DEBUG_FEATURE)
+          if (printer.debugFeature()) {
             SERIAL_MV("Save X", xCount);
             SERIAL_MV(" Y", yCount);
             SERIAL_EMV(" Z", abl.z_values[xCount][yCount]);
           }
         #endif
-
-      #elif ENABLED(AUTO_BED_LEVELING_3POINT)
-
-        points[abl_probe_index].z = measured_z;
 
       #endif
     }
@@ -536,7 +536,7 @@ inline void gcode_G29(void) {
     #if ABL_GRID
 
       // Skip any unreachable points
-      while (abl_probe_index < abl2) {
+      while (abl_probe_index < abl_points) {
 
         // Set xCount, yCount based on abl_probe_index, with zig-zag
         PR_OUTER_VAR = abl_probe_index / PR_INNER_END;
@@ -563,7 +563,7 @@ inline void gcode_G29(void) {
       }
 
       // Is there a next point to move to?
-      if (abl_probe_index < abl2) {
+      if (abl_probe_index < abl_points) {
         bedlevel.manual_goto_xy(xProbe, yProbe); // Can be used here too!
         #if HAS_SOFTWARE_ENDSTOPS
           // Disable software endstops to allow manual adjustment
@@ -587,9 +587,10 @@ inline void gcode_G29(void) {
     #elif ENABLED(AUTO_BED_LEVELING_3POINT)
 
       // Probe at 3 arbitrary points
-      if (abl_probe_index < 3) {
+      if (abl_probe_index < abl_points) {
         xProbe = points[abl_probe_index].x;
         yProbe = points[abl_probe_index].y;
+        bedlevel.manual_goto_xy(xProbe, yProbe);
         #if HAS_SOFTWARE_ENDSTOPS
           // Disable software endstops to allow manual adjustment
           // If G29 is not completed, they will not be re-enabled
@@ -625,7 +626,7 @@ inline void gcode_G29(void) {
 
   #else // !PROBE_MANUALLY
   {
-    const bool stow_probe_after_each = parser.boolval('E');
+    const ProbePtRaiseEnum raise_after = parser.boolval('E') ? PROBE_PT_STOW : PROBE_PT_RAISE;
 
     measured_z = 0.0;
 
@@ -669,10 +670,10 @@ inline void gcode_G29(void) {
             if (!mechanics.position_is_reachable_by_probe(xProbe, yProbe)) continue;
           #endif
 
-          measured_z = faux ? 0.001 * random(-100, 101) : probe.check_pt(xProbe, yProbe, stow_probe_after_each, verbose_level);
+          measured_z = faux ? 0.001 * random(-100, 101) : probe.check_pt(xProbe, yProbe, raise_after, verbose_level);
 
           if (isnan(measured_z)) {
-            bedlevel.leveling_active = abl_should_enable;
+            bedlevel.set_bed_leveling_enabled(abl_should_enable);
             break;
           }
 
@@ -680,9 +681,9 @@ inline void gcode_G29(void) {
 
             mean += measured_z;
             eqnBVector[abl_probe_index] = measured_z;
-            eqnAMatrix[abl_probe_index + 0 * abl2] = xProbe;
-            eqnAMatrix[abl_probe_index + 1 * abl2] = yProbe;
-            eqnAMatrix[abl_probe_index + 2 * abl2] = 1;
+            eqnAMatrix[abl_probe_index + 0 * abl_points] = xProbe;
+            eqnAMatrix[abl_probe_index + 1 * abl_points] = yProbe;
+            eqnAMatrix[abl_probe_index + 2 * abl_points] = 1;
 
             incremental_LSF(&lsf_results, xProbe, yProbe, measured_z);
 
@@ -706,9 +707,9 @@ inline void gcode_G29(void) {
         // Retain the last probe position
         xProbe = points[i].x;
         yProbe = points[i].y;
-        measured_z = faux ? 0.001 * random(-100, 101) : probe.check_pt(xProbe, yProbe, stow_probe_after_each, verbose_level);
+        measured_z = faux ? 0.001 * random(-100, 101) : probe.check_pt(xProbe, yProbe, raise_after, verbose_level);
         if (isnan(measured_z)) {
-          bedlevel.leveling_active = abl_should_enable;
+          bedlevel.flag.leveling_active = abl_should_enable;
           break;
         }
         points[i].z = measured_z;
@@ -731,7 +732,7 @@ inline void gcode_G29(void) {
 
     // Raise to _Z_PROBE_DEPLOY_HEIGHT. Stow the probe.
     if (STOW_PROBE()) {
-      bedlevel.leveling_active = abl_should_enable;
+      bedlevel.flag.leveling_active = abl_should_enable;
       measured_z = NAN;
     }
   }
@@ -747,14 +748,14 @@ inline void gcode_G29(void) {
   // return or loop before this point.
   //
 
-  #if ENABLED(DEBUG_LEVELING_FEATURE)
-    if (printer.debugLeveling()) DEBUG_POS("> probing complete", mechanics.current_position);
+  #if ENABLED(DEBUG_FEATURE)
+    if (printer.debugFeature()) DEBUG_POS("> probing complete", mechanics.current_position);
   #endif
 
   #if ENABLED(PROBE_MANUALLY)
-    bedlevel.g29_in_progress = false;
-    #if ENABLED(LCD_BED_LEVELING) && ENABLED(ULTRA_LCD)
-      lcd_wait_for_move = false;
+    bedlevel.flag.g29_in_progress = false;
+    #if ENABLED(LCD_BED_LEVELING) && HAS_SPI_LCD
+      lcdui.wait_for_bl_move = false;
     #endif
   #endif
 
@@ -790,7 +791,7 @@ inline void gcode_G29(void) {
       plane_equation_coefficients[1] = -lsf_results.B;  // but that is not yet tested.
       plane_equation_coefficients[2] = -lsf_results.D;
 
-      mean /= abl2;
+      mean /= abl_points;
 
       if (verbose_level) {
         SERIAL_MV("Eqn coefficients: a: ", plane_equation_coefficients[0], 8);
@@ -828,8 +829,8 @@ inline void gcode_G29(void) {
           for (uint8_t xx = 0; xx < abl_grid_points_x; xx++) {
             int ind = indexIntoAB[xx][yy];
             float diff = eqnBVector[ind] - mean,
-                  x_tmp = eqnAMatrix[ind + 0 * abl2],
-                  y_tmp = eqnAMatrix[ind + 1 * abl2],
+                  x_tmp = eqnAMatrix[ind + 0 * abl_points],
+                  y_tmp = eqnAMatrix[ind + 1 * abl_points],
                   z_tmp = 0;
 
             apply_rotation_xyz(bedlevel.matrix, x_tmp, y_tmp, z_tmp);
@@ -852,8 +853,8 @@ inline void gcode_G29(void) {
           for (int8_t yy = abl_grid_points_y - 1; yy >= 0; yy--) {
             for (uint8_t xx = 0; xx < abl_grid_points_x; xx++) {
               int ind = indexIntoAB[xx][yy];
-              float x_tmp = eqnAMatrix[ind + 0 * abl2],
-                    y_tmp = eqnAMatrix[ind + 1 * abl2],
+              float x_tmp = eqnAMatrix[ind + 0 * abl_points],
+                    y_tmp = eqnAMatrix[ind + 1 * abl_points],
                     z_tmp = 0;
 
               apply_rotation_xyz(bedlevel.matrix, x_tmp, y_tmp, z_tmp);
@@ -885,24 +886,24 @@ inline void gcode_G29(void) {
         // Correct the current XYZ position based on the tilted plane.
         //
 
-        #if ENABLED(DEBUG_LEVELING_FEATURE)
-          if (printer.debugLeveling()) DEBUG_POS("G29 uncorrected XYZ", mechanics.current_position);
+        #if ENABLED(DEBUG_FEATURE)
+          if (printer.debugFeature()) DEBUG_POS("G29 uncorrected XYZ", mechanics.current_position);
         #endif
 
         float converted[XYZ];
         COPY_ARRAY(converted, mechanics.current_position);
 
-        bedlevel.leveling_active = true;
+        bedlevel.flag.leveling_active = true;
         bedlevel.unapply_leveling(converted); // use conversion machinery
-        bedlevel.leveling_active = false;
+        bedlevel.flag.leveling_active = false;
 
         // Use the last measured distance to the bed, if possible
-        if ( NEAR(mechanics.current_position[X_AXIS], xProbe - probe.offset[X_AXIS])
-          && NEAR(mechanics.current_position[Y_AXIS], yProbe - probe.offset[Y_AXIS])
+        if ( NEAR(mechanics.current_position[X_AXIS], xProbe - probe.data.offset[X_AXIS])
+          && NEAR(mechanics.current_position[Y_AXIS], yProbe - probe.data.offset[Y_AXIS])
         ) {
           float simple_z = mechanics.current_position[Z_AXIS] - measured_z;
-          #if ENABLED(DEBUG_LEVELING_FEATURE)
-            if (printer.debugLeveling()) {
+          #if ENABLED(DEBUG_FEATURE)
+            if (printer.debugFeature()) {
               SERIAL_MV("Z from Probe:", simple_z);
               SERIAL_MV("  Matrix:", converted[Z_AXIS]);
               SERIAL_EMV("  Discrepancy:", simple_z - converted[Z_AXIS]);
@@ -914,38 +915,38 @@ inline void gcode_G29(void) {
         // The rotated XY and corrected Z are now current_position
         COPY_ARRAY(mechanics.current_position, converted);
 
-        #if ENABLED(DEBUG_LEVELING_FEATURE)
-          if (printer.debugLeveling()) DEBUG_POS("G29 corrected XYZ", mechanics.current_position);
+        #if ENABLED(DEBUG_FEATURE)
+          if (printer.debugFeature()) DEBUG_POS("G29 corrected XYZ", mechanics.current_position);
         #endif
       }
 
     #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
       if (!dryrun) {
-        #if ENABLED(DEBUG_LEVELING_FEATURE)
-          if (printer.debugLeveling()) SERIAL_EMV("G29 uncorrected Z:", mechanics.current_position[Z_AXIS]);
+        #if ENABLED(DEBUG_FEATURE)
+          if (printer.debugFeature()) SERIAL_EMV("G29 uncorrected Z:", mechanics.current_position[Z_AXIS]);
         #endif
 
         // Unapply the offset because it is going to be immediately applied
         // and cause compensation movement in Z
         mechanics.current_position[Z_AXIS] -= abl.bilinear_z_offset(mechanics.current_position);
 
-        #if ENABLED(DEBUG_LEVELING_FEATURE)
-          if (printer.debugLeveling()) SERIAL_EMV(" corrected Z:", mechanics.current_position[Z_AXIS]);
+        #if ENABLED(DEBUG_FEATURE)
+          if (printer.debugFeature()) SERIAL_EMV(" corrected Z:", mechanics.current_position[Z_AXIS]);
         #endif
       }
 
     #endif // ABL_PLANAR
 
     #if ENABLED(Z_PROBE_END_SCRIPT)
-      #if ENABLED(DEBUG_LEVELING_FEATURE)
-        if (printer.debugLeveling()) {
+      #if ENABLED(DEBUG_FEATURE)
+        if (printer.debugFeature()) {
           SERIAL_MSG("Z Probe End Script: ");
           SERIAL_EM(Z_PROBE_END_SCRIPT);
         }
       #endif
+      planner.synchronize();
       commands.enqueue_and_echo_P(PSTR(Z_PROBE_END_SCRIPT));
-      stepper.synchronize();
     #endif
 
     #if HAS_NEXTION_MANUAL_BED
@@ -953,22 +954,26 @@ inline void gcode_G29(void) {
     #endif
 
     // Auto Bed Leveling is complete! Enable if possible.
-    bedlevel.leveling_active = dryrun ? abl_should_enable : true;
+    bedlevel.flag.leveling_active = dryrun ? abl_should_enable : true;
   } // !isnan(measured_z)
 
   // Restore state after probing
   if (!faux) printer.clean_up_after_endstop_or_probe_move();
 
-  #if ENABLED(DEBUG_LEVELING_FEATURE)
-    if (printer.debugLeveling()) SERIAL_EM("<<< G29");
+  #if ENABLED(DEBUG_FEATURE)
+    if (printer.debugFeature()) SERIAL_EM("<<< G29");
   #endif
-
-  mechanics.report_current_position();
 
   printer.keepalive(InHandler);
 
-  if (bedlevel.leveling_active)
+  if (bedlevel.flag.leveling_active)
     mechanics.sync_plan_position();
+
+  #if HAS_BED_PROBE && Z_PROBE_AFTER_PROBING > 0
+    probe.move_z_after_probing();
+  #endif
+
+  mechanics.report_current_position();
 }
 
 #endif // OLD_ABL

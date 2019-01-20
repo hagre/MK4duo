@@ -38,75 +38,63 @@
    *  S<int>    Speed between 0-255
    *  F<int>    Set PWM frequency
    *  H<int>    Set Auto mode - H=7 for controller - H-1 for disabled
+   *  T<int>    Set Triggered temperature
    *  U<int>    Fan Pin
    *  L<int>    Min Speed
+   *  X<int>    Max Speed
    *  I<bool>   Inverted pin output
    */
   inline void gcode_M106(void) {
 
-    if (printer.debugSimulation()) return;
+    uint8_t f = 0;
 
-    const uint8_t speed = parser.byteval('S', 255),
-                  f     = parser.byteval('P');
+    if (printer.debugSimulation() || !commands.get_target_fan(f)) return;
 
-    if (f < FAN_COUNT) {
+    const uint8_t speed = parser.byteval('S', 255);
 
-      Fan *fan = &fans[f];
+    Fan *fan = &fans[f];
 
-      if (parser.seen('U')) {
-        // Put off the fan
-        fan->Speed = 0;
-        fan->pin = parser.value_pin();
-        SERIAL_LM(ECHO, MSG_CHANGE_PIN);
-      }
-
-      if (parser.seen('I'))
-        fan->setHWInverted(parser.value_bool());
-
-      if (parser.seen('H'))
-        fan->SetAutoMonitored(parser.value_int());
-
-      fan->min_Speed  = parser.byteval('L', fan->min_Speed);
-      fan->freq       = parser.ushortval('F', fan->freq);
-
-      #if ENABLED(FAN_KICKSTART_TIME)
-        if (fan->Kickstart == 0 && speed > fan->Speed && speed < 85) {
-          if (fan->Speed) fan->Kickstart = FAN_KICKSTART_TIME / 100;
-          else            fan->Kickstart = FAN_KICKSTART_TIME / 25;
-        }
-      #endif
-
-      fan->Speed = fan->min_Speed + (speed * (255 - fan->min_Speed)) / 255;
-
-      if (!parser.seen('S')) {
-        char response[50];
-        sprintf_P(response, PSTR("Fan: %i pin: %i frequency: %uHz min: %i inverted: %s"),
-            (int)f,
-            (int)fan->pin,
-            (uint16_t)fan->freq,
-            (int)fan->min_Speed,
-            (fan->isHWInverted()) ? "true" : "false"
-        );
-        SERIAL_TXT(response);
-
-        // Auto Fan
-        if (fan->autoMonitored) SERIAL_MSG(" Autofan on:");
-        LOOP_HOTEND() {
-          if (TEST(fan->autoMonitored, h)) SERIAL_MV(" H", (int)h);
-        }
-        if (TEST(fan->autoMonitored, 7)) SERIAL_MSG(" Controller");
-
-        SERIAL_EOL();
-      }
+    if (parser.seen('U')) {
+      // Put off the fan
+      fan->Speed = 0;
+      fan->data.pin = parser.value_pin();
+      SERIAL_LM(ECHO, MSG_CHANGE_PIN);
     }
+
+    if (parser.seen('I'))
+      fan->setHWInverted(parser.value_bool());
+
+    if (parser.seen('H'))
+      fan->setAutoMonitored(parser.value_int());
+
+    fan->data.min_Speed           = parser.byteval('L', fan->data.min_Speed);
+    fan->data.max_Speed           = parser.byteval('X', fan->data.max_Speed);
+    fan->data.freq                = parser.ushortval('F', fan->data.freq);
+    fan->data.triggerTemperature  = parser.ushortval('T', fan->data.triggerTemperature);
+
+    #if ENABLED(FAN_KICKSTART_TIME)
+      if (fan->Kickstart == 0 && speed > fan->Speed && speed < 85) {
+        if (fan->Speed) fan->Kickstart = FAN_KICKSTART_TIME / 100;
+        else            fan->Kickstart = FAN_KICKSTART_TIME / 25;
+      }
+    #endif
+
+    fan->Speed = constrain(speed, fan->data.min_Speed, fan->data.max_Speed);
+
+    #if DISABLED(DISABLE_M503)
+      // No arguments? Show M106 report.
+      if (!parser.seen("SUIHLXFT")) fan->print_M106();
+    #endif
+
   }
 
   /**
    * M107: Fan Off
    */
   inline void gcode_M107(void) {
-    const uint8_t f = parser.byteval('P');
-    if (f < FAN_COUNT) fans[f].Speed = 0;
+    uint8_t f = 0;
+    if (printer.debugSimulation() || !commands.get_target_fan(f)) return;
+    fans[f].Speed = 0;
   }
 
 #endif // FAN_COUNT > 0

@@ -30,8 +30,8 @@
 ****************************************************************************************/
 
 //###CHIP
-#if DISABLED(__AVR_ATmega644__) && DISABLED(__AVR_ATMega644P__)
-  #error Oops!  Make sure you have 'Sanguino' selected from the 'Tools -> Boards' menu. (Final OMCA board)
+#if DISABLED(__AVR_ATmega644__) && DISABLED(__AVR_ATmega644P__) && DISABLED(__AVR_ATmega1284P__)
+  #error "Oops! Select 'Sanguino' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -131,7 +131,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -183,6 +182,7 @@
 //###LASER
 #define ORIG_LASER_PWR_PIN         NoPin
 #define ORIG_LASER_PWM_PIN         NoPin
+
 
 
 

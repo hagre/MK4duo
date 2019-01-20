@@ -6,7 +6,7 @@
 
 //###CHIP
 #if DISABLED(ARDUINO_ARCH_SAM)
-  #error Oops!  Make sure you have 'Arduino Due' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Arduino Due' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -106,7 +106,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -145,8 +144,6 @@
 #define SERVO3_PIN                  6
 
 //###MISC
-#define EEPROM_I2C
-#define E2END 0x2000
 #define ORIG_PS_ON_PIN             24
 #define ORIG_BEEPER_PIN            44
 #define LED_PIN                    NoPin
@@ -163,6 +160,9 @@
 
 
 //###UNKNOWN_PINS
+// I2C EEPROM with 8K of space
+#define EEPROM_I2C
+#define E2END 0x1FFF
 #define S0_MUX            41
 #define S1_MUX            40
 #define S2_MUX            50
@@ -184,7 +184,7 @@
 //#define DAC0_SYNC               53 // PB14
 //#define DAC1_SYNC                6 // PC24
 
-#if ENABLED(ULTRA_LCD)
+#if HAS_SPI_LCD
   // LCD panel
   #if ENABLED(REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER)
     #define LCD_PINS_RS         46
@@ -203,3 +203,4 @@
    #endif 
 #endif // ULTRA_LCD
 //@@@
+

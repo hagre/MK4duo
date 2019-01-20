@@ -34,19 +34,23 @@
    * M206: Set Additional Homing Offset (X Y Z). SCARA aliases T=X, P=Y
    */
   inline void gcode_M206(void) {
+
+    #if DISABLED(DISABLE_M503)
+      // No arguments? Show M206 report.
+      if (!parser.seen("XYZETP")) {
+        mechanics.print_M206();
+        return;
+      }
+    #endif
+
     LOOP_XYZ(i) {
       if (parser.seen(axis_codes[i]))
         mechanics.set_home_offset((AxisEnum)i, parser.value_linear_units());
     }
-    #if MECH(MORGAN_SCARA)
-      if (parser.seen('T')) mechanics.set_home_offset(A_AXIS, parser.value_linear_units()); // Theta
-      if (parser.seen('P')) mechanics.set_home_offset(Y_AXIS, parser.value_linear_units()); // Psi
-    #endif
 
-    #if IS_SCARA
-      mechanics.sync_plan_position_kinematic();
-    #else
-      mechanics.sync_plan_position();
+    #if MECH(MORGAN_SCARA)
+      if (parser.seen('T')) mechanics.set_home_offset(A_AXIS, parser.value_float()); // Theta
+      if (parser.seen('P')) mechanics.set_home_offset(Y_AXIS, parser.value_float()); // Psi
     #endif
 
     mechanics.report_current_position();

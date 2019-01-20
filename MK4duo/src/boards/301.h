@@ -5,7 +5,7 @@
 
 //###CHIP
 #if DISABLED(__AVR_ATmega2560__)
-  #error Oops!  Make sure you have 'Arduino Mega 2560' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Arduino Mega 2560' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -105,7 +105,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -181,7 +180,7 @@
 #define ORIG_HEATER_2_PIN NoPin
 #endif
 
-#if ENABLED(ULTRA_LCD)
+#if HAS_SPI_LCD
   #define KILL_PIN 80
   #if ENABLED(NEWPANEL)
    // arduino pin which triggers an piezzo beeper
@@ -234,3 +233,4 @@
   #endif
 #endif //ULTRA_LCD
 //@@@
+

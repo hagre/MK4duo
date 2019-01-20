@@ -5,7 +5,7 @@
 
 //###CHIP
 #if DISABLED(__AVR_ATmega644__) && DISABLED(__AVR_ATmega644P__) && DISABLED(__AVR_ATmega1284P__)
-  #error Oops!  Make sure you have 'Gen7' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Gen7' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -105,7 +105,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -132,7 +131,7 @@
 #define ORIG_TEMP_COOLER_PIN       NoPin
 
 //###FAN
-#define ORIG_FAN0_PIN              NoPin
+#define ORIG_FAN0_PIN              31
 #define ORIG_FAN1_PIN              NoPin
 #define ORIG_FAN2_PIN              NoPin
 #define ORIG_FAN3_PIN              NoPin
@@ -163,11 +162,4 @@
 #define BOGUS_TEMPERATURE_FAILSAFE_OVERRIDE
 //@@@
 
-//###IF_BLOCKS
-#if (GEN7_VERSION >= 13)
-  // Gen7 v1.3 removed the fan pin
-  #define ORIG_FAN0_PIN NoPin
-#else
-  #define ORIG_FAN0_PIN 31
-#endif
-//@@@
+

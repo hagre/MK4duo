@@ -14,7 +14,7 @@
 
 //###CHIP
 #if DISABLED(ARDUINO_ARCH_SAM)
-  #error Oops!  Make sure you have 'Alligator 3D Printer Board' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Alligator 3D Printer Board' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -114,7 +114,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -172,7 +171,7 @@
 #undef NUM_DIGITAL_PINS
 #define NUM_DIGITAL_PINS 111
 
-#define SPI_CHAN_DAC 1
+#define SPI_CHAN_DAC           1
 #define X_MS1_PIN             99
 #define Y_MS1_PIN             10
 #define Z_MS1_PIN             44
@@ -181,21 +180,24 @@
 #define EXP_VOLTAGE_LEVEL_PIN 65
 #define DAC0_SYNC_PIN         53
 #define DAC1_SYNC_PIN          6
-#define EEPROM_SPI
 #define SPI_CHAN_EEPROM1       2
 #define SPI_EEPROM1_CS        25
 #define SPI_EEPROM2_CS        26
 #define SPI_FLASH_CS          23
+#define EEPROM_SPI
 #define E2END                 0x2000
 #define HAVE_MCU_TEMPERATURE
 //@@@
 
 //###IF_BLOCKS
-#if ENABLED(REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER)
+#if ENABLED(REPRAPWORLD_GRAPHICAL_LCD)
 
   #define LCD_PINS_RS         18
   #define LCD_PINS_ENABLE     15
   #define LCD_PINS_D4         19
+  #define LCD_PINS_D5         50
+  #define LCD_PINS_D6         52
+  #define LCD_PINS_D7         53
   #define ORIG_BEEPER_PIN     64
 
   #define BTN_EN1             14
@@ -208,4 +210,15 @@
   #endif
 
 #endif
+//@@@
+
+//###MB_SETUP
+#define MB_SETUP                    \
+  OUT_WRITE(DAC0_SYNC_PIN, HIGH);   \
+  OUT_WRITE(DAC1_SYNC_PIN, HIGH);   \
+  OUT_WRITE(SPI_EEPROM1_CS, HIGH);  \
+  OUT_WRITE(SPI_EEPROM2_CS, HIGH);  \
+  OUT_WRITE(SPI_FLASH_CS, HIGH);    \
+  SET_INPUT(MOTOR_FAULT_PIN);       \
+  OUT_WRITE(EXP_VOLTAGE_LEVEL_PIN, UI_VOLTAGE_LEVEL)
 //@@@

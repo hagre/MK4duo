@@ -5,7 +5,7 @@
 
 //###CHIP
 #if DISABLED(__AVR_ATmega2560__)
-  #error Oops!  Make sure you have 'Arduino Mega 2560' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Arduino Mega 2560' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -105,7 +105,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -160,37 +159,37 @@
 
 
 //###UNKNOWN_PINS
-#define SHIFT_CLK           63
-#define SHIFT_LD            42
-#define SHIFT_OUT           17
-#define SHIFT_EN            17
+#define SHIFT_CLK                  63
+#define SHIFT_LD                   42
+#define SHIFT_OUT                  17
+#define SHIFT_EN                   17
 //@@@
 
 //###IF_BLOCKS
-#if TEMP_SENSOR_0 ==        NoPin
-  #define ORIG_TEMP_0_PIN    4 // ANALOG NUMBERING
+#if TEMP_SENSOR_0 == -1 //thermocouple with AD595 or AD597
+  #define ORIG_TEMP_0_PIN    4
 #else
-  #define ORIG_TEMP_0_PIN   13 // ANALOG NUMBERING
+  #define ORIG_TEMP_0_PIN   13
 #endif
 
-#if TEMP_SENSOR_1 == NoPin
-  #define ORIG_TEMP_1_PIN    8 // ANALOG NUMBERING
+#if TEMP_SENSOR_1 == -1 //thermocouple with AD595 or AD597
+  #define ORIG_TEMP_1_PIN    8
 #else
-  #define ORIG_TEMP_1_PIN   15 // ANALOG NUMBERING
+  #define ORIG_TEMP_1_PIN   15
 #endif
 
-#if TEMP_SENSOR_BED ==      NoPin
-  #define ORIG_TEMP_BED_PIN  8 // ANALOG NUMBERING
+#if TEMP_SENSOR_BED == -1 //thermocouple with AD595 or AD597
+  #define ORIG_TEMP_BED_PIN  8
 #else
-  #define ORIG_TEMP_BED_PIN 14 // ANALOG NUMBERING
+  #define ORIG_TEMP_BED_PIN 14
 #endif
 
-#if ENABLED(DOGLCD)
+#if HAS_GRAPHICAL_LCD
 
   #if ENABLED(U8GLIB_ST7920)
-    #define LCD_PINS_RS     56 // CS chip select /SS chip slave select
-    #define LCD_PINS_ENABLE 51 // SID (MOSI)
-    #define LCD_PINS_D4     52 // SCK (CLK) clock     
+    #define LCD_PINS_RS     56
+    #define LCD_PINS_ENABLE 51
+    #define LCD_PINS_D4     52
 
     #define BTN_EN1         44
     #define BTN_EN2         45
@@ -214,7 +213,7 @@
   //buttons are directly attached using keypad
   #define BTN_EN1           44
   #define BTN_EN2           45
-  #define BTN_ENC           33  // the click
+  #define BTN_ENC           33
 
   #define BLEN_C             2
   #define BLEN_B             1
@@ -222,3 +221,4 @@
 
 #endif
 //@@@
+

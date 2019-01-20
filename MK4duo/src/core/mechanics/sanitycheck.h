@@ -37,10 +37,6 @@
   #error "DEPENDENCY ERROR: You have to set a valid MECHANICS."
 #endif
 
-#if DISABLED(NUM_POSITON_SLOTS)
-  #error "DEPENDENCY ERROR: Missing setting NUM_POSITON_SLOTS."
-#endif
-
 #if DISABLED(AXIS_RELATIVE_MODES)
   #error "DEPENDENCY ERROR: Missing setting AXIS_RELATIVE_MODES."
 #endif
@@ -145,6 +141,12 @@
 #if DISABLED(INVERT_E3_DIR)
   #error "DEPENDENCY ERROR: Missing setting INVERT_E3_DIR."
 #endif
+#if DISABLED(INVERT_E4_DIR)
+  #error "DEPENDENCY ERROR: Missing setting INVERT_E4_DIR."
+#endif
+#if DISABLED(INVERT_E5_DIR)
+  #error "DEPENDENCY ERROR: Missing setting INVERT_E5_DIR."
+#endif
 
 
 // Disable axis
@@ -227,8 +229,8 @@
     #error "DEPENDENCY ERROR: DUAL_X_CARRIAGE requires X_HOME_DIR -1 and X2_HOME_DIR 1."
   #endif
 
-  #if ENABLED(X_TWO_STEPPER)
-    #error "DEPENDENCY ERROR: DUAL_X_CARRIAGE or X_TWO_STEPPER can be set"
+  #if ENABLED(X_TWO_STEPPER_DRIVERS)
+    #error "DEPENDENCY ERROR: DUAL_X_CARRIAGE or X_TWO_STEPPER_DRIVERS can be set"
   #endif
 #endif
 
@@ -237,8 +239,8 @@
 #if DISABLED(MIN_STEPS_PER_SEGMENT)
   #error "DEPENDENCY ERROR: Missing setting MIN_STEPS_PER_SEGMENT."
 #endif
-#if DISABLED(DEFAULT_MINSEGMENTTIME)
-  #error "DEPENDENCY ERROR: Missing setting DEFAULT_MINSEGMENTTIME."
+#if DISABLED(DEFAULT_MIN_SEGMENT_TIME)
+  #error "DEPENDENCY ERROR: Missing setting DEFAULT_MIN_SEGMENT_TIME."
 #endif
 #if DISABLED(MM_PER_ARC_SEGMENT)
   #error "DEPENDENCY ERROR: Missing setting MM_PER_ARC_SEGMENT."
@@ -251,9 +253,9 @@
 #endif
 
 
-// Velocity and acceleration
-#if DISABLED(DEFAULT_MINTRAVELFEEDRATE)
-  #error "DEPENDENCY ERROR: Missing setting DEFAULT_MINTRAVELFEEDRATE."
+// Velocity and data.acceleration
+#if DISABLED(DEFAULT_MIN_TRAVEL_FEEDRATE)
+  #error "DEPENDENCY ERROR: Missing setting DEFAULT_MIN_TRAVEL_FEEDRATE."
 #endif
 #if DISABLED(DEFAULT_MAX_ACCELERATION)
   #error "DEPENDENCY ERROR: Missing setting DEFAULT_MAX_ACCELERATION."
@@ -277,112 +279,114 @@
   #error "DEPENDENCY ERROR: Missing setting DEFAULT_ZJERK."
 #endif
 
-
-// Two or more Z steppers
-#if ENABLED(Z_TWO_STEPPER)
-  #if ENABLED(Z_THREE_STEPPER) || ENABLED(Z_FOUR_STEPPER)
-    #error "DEPENDENCY ERROR: You cannot have two Z stepper and three or four drivers."
+// Two X steppers
+#if ENABLED(X_TWO_STEPPER_DRIVERS)
+  #if DISABLED(INVERT_X2_VS_X_DIR)
+    #error "DEPENDENCY ERROR: Missing setting INVERT_X2_VS_X_DIR."
   #endif
-#elif ENABLED(Z_THREE_STEPPER) && ENABLED(Z_FOUR_STEPPER)
-  #error "DEPENDENCY ERROR: You cannot have three Z stepper and four drivers."
 #endif
 
-
 // Two Y steppers
-#if ENABLED(Y_TWO_STEPPER)
+#if ENABLED(Y_TWO_STEPPER_DRIVERS)
   #if DISABLED(INVERT_Y2_VS_Y_DIR)
     #error "DEPENDENCY ERROR: Missing setting INVERT_Y2_VS_Y_DIR."
   #endif
 #endif
 
+// Two Z steppers
+#if ENABLED(Z_TWO_STEPPER_DRIVERS)
+  #if DISABLED(INVERT_Z2_VS_Z_DIR)
+    #error "DEPENDENCY ERROR: Missing setting INVERT_Z2_VS_Z_DIR."
+  #endif
+#endif
 
 // Pin definitions
-#if !PIN_EXISTS(X_STEP)
+#if !HAS_X_STEP
   #error "DEPENDENCY ERROR: X_STEP_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(X_DIR)
+#if !HAS_X_DIR
   #error "DEPENDENCY ERROR: X_DIR_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(X_ENABLE)
+#if !HAS_X_ENABLE
   #error "DEPENDENCY ERROR: X_ENABLE_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(Y_STEP)
+#if !HAS_Y_STEP
   #error "DEPENDENCY ERROR: Y_STEP_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(Y_DIR)
+#if !HAS_Y_DIR
   #error "DEPENDENCY ERROR: Y_DIR_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(Y_ENABLE)
+#if !HAS_Y_ENABLE
   #error "DEPENDENCY ERROR: Y_ENABLE_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(Z_STEP)
+#if !HAS_Z_STEP
   #error "DEPENDENCY ERROR: Z_STEP_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(Z_DIR)
+#if !HAS_Z_DIR
   #error "DEPENDENCY ERROR: Z_DIR_PIN is not defined for your board. You have to define it yourself."
 #endif
-#if !PIN_EXISTS(Z_ENABLE)
+#if !HAS_Z_ENABLE
   #error "DEPENDENCY ERROR: Z_ENABLE_PIN is not defined for your board. You have to define it yourself."
 #endif
 
 #if DRIVER_EXTRUDERS > 0
-  #if !PIN_EXISTS(E0_STEP)
+  #if !HAS_E0_STEP
     #error "DEPENDENCY ERROR: E0_STEP_PIN is not defined for your board. You have to define it yourself."
   #endif
-  #if !PIN_EXISTS(E0_DIR)
+  #if !HAS_E0_DIR
     #error "DEPENDENCY ERROR: E0_DIR_PIN is not defined for your board. You have to define it yourself."
   #endif
-  #if !PIN_EXISTS(E0_ENABLE)
+  #if !HAS_E0_ENABLE
     #error "DEPENDENCY ERROR: E0_ENABLE_PIN is not defined for your board. You have to define it yourself."
   #endif
   #if DRIVER_EXTRUDERS > 1
-    #if !PIN_EXISTS(E1_STEP)
+    #if !HAS_E1_STEP
       #error "DEPENDENCY ERROR: E1_STEP_PIN is not defined for your board. You have to define it yourself."
     #endif
-    #if !PIN_EXISTS(E1_DIR)
+    #if !HAS_E1_DIR
       #error "DEPENDENCY ERROR: E1_DIR_PIN is not defined for your board. You have to define it yourself."
     #endif
-    #if !PIN_EXISTS(E1_ENABLE)
+    #if !HAS_E1_ENABLE
       #error "DEPENDENCY ERROR: E1_ENABLE_PIN is not defined for your board. You have to define it yourself."
     #endif
     #if DRIVER_EXTRUDERS > 2
-      #if !PIN_EXISTS(E2_STEP)
+      #if !HAS_E2_STEP
         #error "DEPENDENCY ERROR: E2_STEP_PIN is not defined for your board. You have to define it yourself."
       #endif
-      #if !PIN_EXISTS(E2_DIR)
+      #if !HAS_E2_DIR
         #error "DEPENDENCY ERROR: E2_DIR_PIN is not defined for your board. You have to define it yourself."
       #endif
-      #if !PIN_EXISTS(E2_ENABLE)
+      #if !HAS_E2_ENABLE
         #error "DEPENDENCY ERROR: E2_ENABLE_PIN is not defined for your board. You have to define it yourself."
       #endif
       #if DRIVER_EXTRUDERS > 3
-        #if !PIN_EXISTS(E3_STEP)
+        #if !HAS_E3_STEP
           #error "DEPENDENCY ERROR: E3_STEP_PIN is not defined for your board. You have to define it yourself."
         #endif
-        #if !PIN_EXISTS(E3_DIR)
+        #if !HAS_E3_DIR
           #error "DEPENDENCY ERROR: E3_DIR_PIN is not defined for your board. You have to define it yourself."
         #endif
-        #if !PIN_EXISTS(E3_ENABLE)
+        #if !HAS_E3_ENABLE
           #error "DEPENDENCY ERROR: E3_ENABLE_PIN is not defined for your board. You have to define it yourself."
         #endif
         #if DRIVER_EXTRUDERS > 4
-          #if !PIN_EXISTS(E4_STEP)
+          #if !HAS_E4_STEP
             #error "DEPENDENCY ERROR: E4_STEP_PIN is not defined for your board. You have to define it yourself."
           #endif
-          #if !PIN_EXISTS(E4_DIR)
+          #if !HAS_E4_DIR
             #error "DEPENDENCY ERROR: E4_DIR_PIN is not defined for your board. You have to define it yourself."
           #endif
-          #if !PIN_EXISTS(E4_ENABLE)
+          #if !HAS_E4_ENABLE
             #error "DEPENDENCY ERROR: E4_ENABLE_PIN is not defined for your board. You have to define it yourself."
           #endif
           #if DRIVER_EXTRUDERS > 5
-            #if !PIN_EXISTS(E5_STEP)
+            #if !HAS_E5_STEP
               #error "DEPENDENCY ERROR: E5_STEP_PIN is not defined for your board. You have to define it yourself."
             #endif
-            #if !PIN_EXISTS(E5_DIR)
+            #if !HAS_E5_DIR
               #error "DEPENDENCY ERROR: E5_DIR_PIN is not defined for your board. You have to define it yourself."
             #endif
-            #if !PIN_EXISTS(E5_ENABLE)
+            #if !HAS_E5_ENABLE
               #error "DEPENDENCY ERROR: E5_ENABLE_PIN is not defined for your board. You have to define it yourself."
             #endif
           #endif
@@ -391,10 +395,9 @@
     #endif
   #endif
 #endif
-#if ENABLED(X2_IS_TMC) && (!PIN_EXISTS(X2_ENABLE) || !PIN_EXISTS(X2_STEP) || !PIN_EXISTS(X2_DIR))
+#if X2_HAS_DRV(TMC26X) && (!PIN_EXISTS(X2_ENABLE) || !HAS_X2_STEP || !PIN_EXISTS(X2_DIR))
   #error "DEPENDENCY ERROR: You have to set X2_ENABLE_PIN, X2_STEP_PIN and X2_DIR_PIN to a valid pin if you enable X2_IS_TMC."
 #endif
-
 
 /**
  * Linear Advance 1.5 - Check K value range
@@ -402,8 +405,199 @@
 #if ENABLED(LIN_ADVANCE)
   static_assert(
     WITHIN(LIN_ADVANCE_K, 0, 10),
-    "LIN_ADVANCE_K must be a value from 0 to 10."
+    "DEPENDENCY ERROR: LIN_ADVANCE_K must be a value from 0 to 10."
   );
 #endif
+
+// Z late enable
+#if MECH(COREXZ) && ENABLED(Z_LATE_ENABLE)
+  #error "DEPENDENCY ERROR: Z_LATE_ENABLE can't be used with COREXZ."
+#endif
+
+// Core factor
+#if IS_CORE
+
+  #if DISABLED(CORE_FACTOR)
+    #error "DEPENDENCY ERROR: Missing setting CORE_FACTOR."
+  #endif
+
+  /**
+   * TWO STEPPER DRIVERS
+   */
+  #if ENABLED(X_TWO_STEPPER_DRIVERS) || ENABLED(Y_TWO_STEPPER_DRIVERS)
+    #error "DEPENDENCY ERROR: TWO Stepper Driver XY for Core is imposible"
+  #endif
+
+  /**
+   * TWO ENDSTOPS
+   */
+  #if ENABLED(X_TWO_ENDSTOPS) || ENABLED(Y_TWO_ENDSTOPS)
+    #error "DEPENDENCY ERROR: TWO ENDSTOPS XY for Core is imposible"
+  #endif
+
+#endif // IS_CORE
+
+// Delta requirements
+#if MECH(DELTA)
+
+  #if ABL_GRID
+    #if (GRID_MAX_POINTS_X & 1) == 0  || (GRID_MAX_POINTS_Y & 1) == 0
+      #error "DEPENDENCY ERROR: DELTA requires GRID_MAX_POINTS_X and GRID_MAX_POINTS_Y to be odd numbers."
+    #elif GRID_MAX_POINTS_X < 3 || GRID_MAX_POINTS_Y < 3
+      #error "DEPENDENCY ERROR: DELTA requires GRID_MAX_POINTS_X and GRID_MAX_POINTS_Y to be 3 or higher."
+    #endif
+  #endif
+
+  static_assert(1 >= 0
+    #if ENABLED(DELTA_AUTO_CALIBRATION_1)
+      +1
+    #endif
+    #if ENABLED(DELTA_AUTO_CALIBRATION_2)
+      +1
+    #endif
+    , "DEPENDENCY ERROR: Select only one between DELTA_AUTO_CALIBRATION_1 and DELTA_AUTO_CALIBRATION_2."
+  );
+
+  #if DISABLED(DELTA_DIAGONAL_ROD)
+    #error "DEPENDENCY ERROR: Missing setting DELTA_DIAGONAL_ROD."
+  #endif
+  #if DISABLED(DELTA_SMOOTH_ROD_OFFSET)
+    #error "DEPENDENCY ERROR: Missing setting DELTA_SMOOTH_ROD_OFFSET."
+  #endif
+  #if DISABLED(DELTA_CARRIAGE_OFFSET)
+    #error "DEPENDENCY ERROR: Missing setting DELTA_CARRIAGE_OFFSET."
+  #endif
+  #if DISABLED(DELTA_PRINTABLE_RADIUS)
+    #error "DEPENDENCY ERROR: Missing setting DELTA_PRINTABLE_RADIUS."
+  #endif
+  #if DISABLED(TOWER_A_ENDSTOP_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_A_ENDSTOP_ADJ."
+  #endif
+  #if DISABLED(TOWER_B_ENDSTOP_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_B_ENDSTOP_ADJ."
+  #endif
+  #if DISABLED(TOWER_C_ENDSTOP_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_C_ENDSTOP_ADJ."
+  #endif
+  #if DISABLED(TOWER_A_RADIUS_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_A_RADIUS_ADJ."
+  #endif
+  #if DISABLED(TOWER_B_RADIUS_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_B_RADIUS_ADJ."
+  #endif
+  #if DISABLED(TOWER_C_RADIUS_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_C_RADIUS_ADJ."
+  #endif
+  #if DISABLED(TOWER_A_ANGLE_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_A_ANGLE_ADJ."
+  #endif
+  #if DISABLED(TOWER_B_ANGLE_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_B_ANGLE_ADJ."
+  #endif
+  #if DISABLED(TOWER_C_ANGLE_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_C_ANGLE_ADJ."
+  #endif
+  #if DISABLED(TOWER_A_DIAGROD_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_A_DIAGROD_ADJ."
+  #endif
+  #if DISABLED(TOWER_B_DIAGROD_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_B_DIAGROD_ADJ."
+  #endif
+  #if DISABLED(TOWER_C_DIAGROD_ADJ)
+    #error "DEPENDENCY ERROR: Missing setting TOWER_C_DIAGROD_ADJ."
+  #endif
+
+  #if HAS_BED_PROBE
+    #if DISABLED(XY_PROBE_SPEED)
+      #error "DEPENDENCY ERROR: Missing setting XY_PROBE_SPEED."
+    #endif
+    #if DISABLED(X_PROBE_OFFSET_FROM_NOZZLE)
+      #error "DEPENDENCY ERROR: Missing setting X_PROBE_OFFSET_FROM_NOZZLE."
+    #endif
+    #if DISABLED(Y_PROBE_OFFSET_FROM_NOZZLE)
+      #error "DEPENDENCY ERROR: Missing setting Y_PROBE_OFFSET_FROM_NOZZLE."
+    #endif
+    #if DISABLED(Z_PROBE_OFFSET_FROM_NOZZLE)
+      #error "DEPENDENCY ERROR: Missing setting Z_PROBE_OFFSET_FROM_NOZZLE."
+    #endif
+    #if DISABLED(Z_PROBE_DEPLOY_START_LOCATION)
+      #error "DEPENDENCY ERROR: Missing setting Z_PROBE_DEPLOY_START_LOCATION."
+    #endif
+    #if DISABLED(Z_PROBE_DEPLOY_END_LOCATION)
+      #error "DEPENDENCY ERROR: Missing setting Z_PROBE_DEPLOY_END_LOCATION."
+    #endif
+    #if DISABLED(Z_PROBE_RETRACT_START_LOCATION)
+      #error "DEPENDENCY ERROR: Missing setting Z_PROBE_RETRACT_START_LOCATION."
+    #endif
+    #if DISABLED(Z_PROBE_RETRACT_END_LOCATION)
+      #error "DEPENDENCY ERROR: Missing setting Z_PROBE_RETRACT_END_LOCATION."
+    #endif
+    #if DISABLED(Z_PROBE_BETWEEN_HEIGHT)
+      #error "DEPENDENCY ERROR: Missing setting Z_PROBE_BETWEEN_HEIGHT."
+    #endif
+  #endif
+
+  /**
+   * Babystepping
+   */
+  #if ENABLED(BABYSTEPPING) && ENABLED(BABYSTEP_XY)
+    #error "DEPENDENCY ERROR: BABYSTEPPING only implemented for Z axis on deltabots."
+  #endif
+
+  /**
+   * TMC2130
+   */
+  #if HAVE_DRV(TMC2130)
+    #if !(X_HAS_DRV(TMC2130) && Y_HAS_DRV(TMC2130) && Z_HAS_DRV(TMC2130))
+      #error "DEPENDENCY ERROR: For delta there must be all three XYZ TMC2130 drivers"
+    #endif
+  #endif
+
+  /**
+   * TWO STEPPER DRIVERS
+   */
+  #if ENABLED(X_TWO_STEPPER_DRIVERS) || ENABLED(Y_TWO_STEPPER_DRIVERS) || ENABLED(Z_TWO_STEPPER_DRIVERS)
+    #error "DEPENDENCY ERROR: TWO Stepper Driver for Delta is imposible"
+  #endif
+
+  /**
+   * TWO ENDSTOPS
+   */
+  #if ENABLED(X_TWO_ENDSTOPS) || ENABLED(Y_TWO_ENDSTOPS) || ENABLED(Z_TWO_ENDSTOPS)
+    #error "DEPENDENCY ERROR: TWO ENDSTOPS for Delta is imposible"
+  #endif
+
+#endif // MECH(DELTA)
+
+// Scara settings
+#if IS_SCARA
+
+  #if DISABLED(SCARA_LINKAGE_1)
+    #error "DEPENDENCY ERROR: Missing setting SCARA_LINKAGE_1."
+  #endif
+  #if DISABLED(SCARA_LINKAGE_2)
+    #error "DEPENDENCY ERROR: Missing setting SCARA_LINKAGE_2."
+  #endif
+  #if DISABLED(SCARA_OFFSET_X)
+    #error "DEPENDENCY ERROR: Missing setting SCARA_OFFSET_X."
+  #endif
+  #if DISABLED(SCARA_OFFSET_Y)
+    #error "DEPENDENCY ERROR: Missing setting SCARA_OFFSET_Y."
+  #endif
+  #if DISABLED(THETA_HOMING_OFFSET)
+    #error "DEPENDENCY ERROR: Missing setting THETA_HOMING_OFFSET."
+  #endif
+  #if DISABLED(PSI_HOMING_OFFSET)
+    #error "DEPENDENCY ERROR: Missing setting PSI_HOMING_OFFSET."
+  #endif
+
+  /**
+   * Babystepping
+   */
+  #if ENABLED(BABYSTEPPING)
+    #error "DEPENDENCY ERROR: BABYSTEPPING is not implemented for SCARA yet."
+  #endif
+
+#endif // IS_SCARA
 
 #endif /* _MECH_SANITYCHECK_H_ */

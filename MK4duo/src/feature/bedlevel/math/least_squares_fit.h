@@ -19,9 +19,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
- * Incremental Least Squares Best Fit  By Roxy and Ed Williams
+ * Incremental Least Squares Best Fit By Roxy and Ed Williams
  *
  * This algorithm is high speed and has a very small code footprint.
  * Its results are identical to both the Iterative Least-Squares published
@@ -31,9 +32,6 @@
  * A point can be probed and its values fed into the algorithm and then discarded.
  *
  */
-
-#ifndef _LEAST_SQUARES_FIT_H_
-#define _LEAST_SQUARES_FIT_H_
 
 #if ABL_PLANAR || ENABLED(AUTO_BED_LEVELING_UBL)
 
@@ -62,8 +60,8 @@
     lsf->xzbar += w * x * z;
     lsf->yzbar += w * y * z;
     lsf->N     += w;
-    lsf->max_absx = max(FABS(w * x), lsf->max_absx);
-    lsf->max_absy = max(FABS(w * y), lsf->max_absy);
+    lsf->max_absx = MAX(ABS(w * x), lsf->max_absx);
+    lsf->max_absy = MAX(ABS(w * y), lsf->max_absy);
   }
 
   void inline incremental_LSF(struct linear_fit_data *lsf, const float &x, const float &y, const float &z) {
@@ -76,13 +74,11 @@
     lsf->xybar += x * y;
     lsf->xzbar += x * z;
     lsf->yzbar += y * z;
-    lsf->max_absx = max(FABS(x), lsf->max_absx);
-    lsf->max_absy = max(FABS(y), lsf->max_absy);
+    lsf->max_absx = MAX(ABS(x), lsf->max_absx);
+    lsf->max_absy = MAX(ABS(y), lsf->max_absy);
     lsf->N += 1.0;
   }
 
   int finish_incremental_LSF(struct linear_fit_data *);
 
 #endif // ENABLED(AUTO_BED_LEVELING_LINEAR)
-
-#endif /* _LEAST_SQUARES_FIT_H_ */

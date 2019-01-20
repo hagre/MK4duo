@@ -38,17 +38,17 @@
     float retract_mm[XYZ];
     LOOP_XYZ(i) {
       float dist = mechanics.destination[i] - mechanics.current_position[i];
-      retract_mm[i] = FABS(dist) < G38_MINIMUM_MOVE ? 0 : mechanics.home_bump_mm((AxisEnum)i) * (dist > 0 ? -1 : 1);
+      retract_mm[i] = ABS(dist) < G38_MINIMUM_MOVE ? 0 : mechanics.home_bump_mm[(AxisEnum)i] * (dist > 0 ? -1 : 1);
     }
 
-    stepper.synchronize();  // wait until the machine is idle
+    planner.synchronize();  // wait until the machine is idle
 
     // Move until mechanics.destination reached or target hit
     endstops.setEnabled(true);
     printer.setG38Move(true);
     endstops.setG38EndstopHit(false);
     mechanics.prepare_move_to_destination();
-    stepper.synchronize();
+    planner.synchronize();
     printer.setG38Move(false);
 
     endstops.hit_on_purpose();
@@ -65,7 +65,7 @@
       LOOP_XYZ(i) mechanics.destination[i] += retract_mm[i];
       endstops.setEnabled(false);
       mechanics.prepare_move_to_destination();
-      stepper.synchronize();
+      planner.synchronize();
 
       mechanics.feedrate_mm_s /= 4;
 
@@ -75,7 +75,7 @@
       endstops.setEnabled(true);
       printer.setG38Move(true);
       mechanics.prepare_move_to_destination();
-      stepper.synchronize();
+      planner.synchronize();
       printer.setG38Move(false);
 
       mechanics.set_current_from_steppers_for_axis(ALL_AXES);
@@ -95,13 +95,13 @@
    */
   void gcode_G38_S(bool is_38_2) {
     // Get X Y Z E F
-    gcode_get_destination();
+    commands.get_destination();
 
-    setup_for_endstop_or_probe_move();
+    printer.setup_for_endstop_or_probe_move();
 
     // If any axis has enough movement, do the move
     LOOP_XYZ(i)
-      if (FABS(mechanics.destination[i] - mechanics.current_position[i]) >= G38_MINIMUM_MOVE) {
+      if (ABS(mechanics.destination[i] - mechanics.current_position[i]) >= G38_MINIMUM_MOVE) {
         if (!parser.seenval('F')) mechanics.feedrate_mm_s = mechanics.homing_feedrate_mm_s[i];
         // If G38.2 fails throw an error
         if (!G38_run_probe() && is_38_2) {
@@ -110,7 +110,7 @@
         break;
       }
 
-    clean_up_after_endstop_or_probe_move();
+    printer.clean_up_after_endstop_or_probe_move();
   }
 
   inline void gcode_G38(void) {

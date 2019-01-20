@@ -3,8 +3,8 @@
 ****************************************************************************************/
 
 //###CHIP
-#if DISABLED(__AVR_ATmega644P__) && DISABLED(__AVR_ATmega1284P__)
-  #error Oops!  Make sure you have 'Sanguino' or 'Anet' selected from the 'Tools -> Boards' menu.
+#if DISABLED(__AVR_ATmega644__) && DISABLED(__AVR_ATmega644P__) && DISABLED(__AVR_ATmega1284P__)
+  #error "Oops! Select 'Sanguino' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -104,7 +104,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -168,11 +167,19 @@
 #define BTN_ENC                   16
 
 // Alter timing for graphical display
-#define ST7920_DELAY_1 DELAY_2_NOP
-#define ST7920_DELAY_2 DELAY_2_NOP
-#define ST7920_DELAY_3 DELAY_2_NOP
+#ifndef ST7920_DELAY_1
+  #define ST7920_DELAY_1 DELAY_NS(125)
+#endif
+#ifndef ST7920_DELAY_2
+  #define ST7920_DELAY_2 DELAY_NS(125)
+#endif
+#ifndef ST7920_DELAY_3
+  #define ST7920_DELAY_3 DELAY_NS(125)
+#endif
 
 #if ENABLED(MINIPANEL)
-  #define DOGLCD_CS               LCD_PINS_RS
+  #undef DOGLCD_CS
+  #define DOGLCD_CS        LCD_PINS_RS
 #endif
 //@@@
+

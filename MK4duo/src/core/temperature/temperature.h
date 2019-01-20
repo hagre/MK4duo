@@ -19,13 +19,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * temperature.h - temperature controller
  */
-
-#ifndef _TEMPERATURE_H_
-#define _TEMPERATURE_H_
 
 class Temperature {
 
@@ -41,10 +39,6 @@ class Temperature {
                       mcu_lowest_temperature,
                       mcu_alarm_temperature;
       static int16_t  mcu_current_temperature_raw;
-    #endif
-
-    #if ENABLED(ADC_KEYPAD)
-      static int16_t  current_ADCKey_raw;
     #endif
 
     #if ENABLED(TEMP_SENSOR_1_AS_REDUNDANT)
@@ -72,12 +66,10 @@ class Temperature {
 
   public: /** Public Function */
 
-    void init();
-
     /**
-     * Static (class) methods
+     * Initialize the temperature manager
      */
-    static void wait_heater(Heater *act, bool no_wait_for_cooling=true);
+    static void init();
 
     /**
      * Called from the Temperature ISR
@@ -92,12 +84,21 @@ class Temperature {
     /**
      * Perform auto-tuning for hotend, bed, chamber or cooler in response to M303
      */
-    static void PID_autotune(Heater *act, const float temp, const uint8_t ncycles, const uint8_t method, const bool storeValues=false);
+    static void PID_autotune(Heater *act, const float target_temp, const uint8_t ncycles, const uint8_t method, const bool storeValues=false);
 
     /**
      * Switch off all heaters, set all target temperatures to 0
      */
     static void disable_all_heaters();
+
+    /**
+     * Check if there are heaters Active
+     */
+    static bool heaters_isActive();
+
+    #if ENABLED(SUPPORT_MAX6675) || ENABLED(SUPPORT_MAX31855)
+      static void getTemperature_SPI();
+    #endif
 
     #if HAS_FILAMENT_SENSOR
       static int8_t widthFil_to_size_ratio(); // Convert Filament Width (mm) to an extrusion ratio
@@ -144,20 +145,9 @@ class Temperature {
       static float analog2tempMCU(const int raw);
     #endif
 
-    static void _temp_error(const uint8_t h, const char * const serial_msg, const char * const lcd_msg);
+    static void _temp_error(const uint8_t h, PGM_P const serial_msg, PGM_P const lcd_msg);
     static void min_temp_error(const uint8_t h);
     static void max_temp_error(const uint8_t h);
-
-    #if HAS_THERMALLY_PROTECTED_HEATER
-
-      typedef enum TRState { TRInactive, TRFirstHeating, TRStable, TRRunaway } TRstate;
-
-      static void thermal_runaway_protection(TRState* state, millis_t* timer, float temperature, float target_temperature, const uint8_t h, int period_seconds, int hysteresis_degc);
-
-      static TRState thermal_runaway_state_machine[HEATER_COUNT];
-      static millis_t thermal_runaway_timer[HEATER_COUNT];
-
-    #endif // HAS_THERMALLY_PROTECTED_HEATER
 
     #if HEATER_COUNT > 0
       static void print_heater_state(Heater *act, const bool print_ID, const bool showRaw);
@@ -166,5 +156,3 @@ class Temperature {
 };
 
 extern Temperature thermalManager;
-
-#endif /* _TEMPERATURE_H_ */

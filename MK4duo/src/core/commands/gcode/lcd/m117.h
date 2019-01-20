@@ -31,4 +31,4 @@
 /**
  * M117: Set LCD Status Message
  */
-inline void gcode_M117() { lcd_setstatus(parser.string_arg); }
+inline void gcode_M117() { lcdui.set_status(parser.string_arg); }

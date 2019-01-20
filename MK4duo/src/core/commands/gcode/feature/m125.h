@@ -36,9 +36,9 @@
    *       object. On resume (M24) the head will be moved back and the
    *       print will resume.
    *
-   *       If MK4duo is compiled without SD Card support, M125 can be
-   *       used directly to pause the print and move to park position,
-   *       resuming with a button click or M108.
+   *       When not actively SD printing, M125 simply moves to the park
+   *       position and waits, resuming with a button click or M108.
+   *       Without PARK_HEAD_ON_PAUSE the M125 command does nothing.
    *
    *    L = override retract length
    *    X = override X
@@ -48,9 +48,9 @@
   inline void gcode_M125(void) {
 
     // Initial retract before move to pause park position
-    const float retract = -FABS(parser.seen('L') ? parser.value_axis_units(E_AXIS) : 0)
+    const float retract = ABS(parser.seen('L') ? parser.value_axis_units(E_AXIS) : 0)
       #if ENABLED(PAUSE_PARK_RETRACT_LENGTH) && PAUSE_PARK_RETRACT_LENGTH > 0
-        - (PAUSE_PARK_RETRACT_LENGTH)
+        + (PAUSE_PARK_RETRACT_LENGTH)
       #endif
     ;
 
@@ -68,20 +68,18 @@
       park_point.y += (tools.active_extruder ? tools.hotend_offset[Y_AXIS][tools.active_extruder] : 0);
     #endif
 
-    #if DISABLED(SDSUPPORT)
-      const bool job_running = print_job_counter.isRunning();
+    #if HAS_LCD_MENU
+      const bool show_lcd = parser.seenval('P');
+      lcd_advanced_pause_show_message(ADVANCED_PAUSE_MESSAGE_INIT, ADVANCED_PAUSE_MODE_PAUSE_PRINT, tools.target_extruder);
+    #else
+      constexpr bool show_lcd = false;
     #endif
-
-    if (pause_print(retract, park_point)) {
-      #if DISABLED(SDSUPPORT)
-        // Wait for lcd click or M108
-        wait_for_filament_reload();
-
-        // Return to print position and continue
-        resume_print();
-
-        if (job_running) print_job_counter.start();
-      #endif
+  
+    if (advancedpause.pause_print(retract, park_point, 0, show_lcd)) {
+      if (!IS_SD_PRINTING() || show_lcd ) {
+        advancedpause.wait_for_confirmation(false, 0);
+        advancedpause.resume_print(0, 0, PAUSE_PARK_RETRACT_LENGTH, 0);
+      }
     }
   }
 

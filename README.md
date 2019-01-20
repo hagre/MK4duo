@@ -2,7 +2,7 @@
 
 # MK4duo 3D Printer Firmware for all Atmel AVR boards and Arduino Due
 
-## Version 4.3.5 Stable.
+## Version 4.3.8 revision 19012019
 
 #### Please donate to support this project https://www.paypal.me/MagoKimbra
 
@@ -27,6 +27,7 @@
     * [Hardware](/Documentation/Hardware.md)
     * [GCodes](/Documentation/GCodes.md)
   * Notes
+    * [Bresenham Algorithm](/Documentation/Bresenham.md)
     * [Auto Bed Leveling](/Documentation/BedLeveling.md)
     * [Filament Sensor](/Documentation/FilamentSensor.md)
     * [Ramps Servo Power](/Documentation/RampsServoPower.md)
@@ -49,9 +50,9 @@ The new features are:
 * The possibility of having only one hotend independently from the extruders that you have.
 * The addition of the 6th extruder.
 * Management Color Mixing Extruder
-* System Management MKr4 for 4 extruders width just two drivers and 8 relay.
-* System Management MKr6 for 6 extruders width just two drivers and 8 relay.
-* System Management MKr12 for 12 extruders width just four drivers and 16 relay.
+* System Management MKr4 for 4 extruders with just two drivers and 8 relays.
+* System Management MKr6 for 6 extruders with just two drivers and 8 relays.
+* System Management MKr12 for 12 extruders with just four drivers and 16 relays.
 * Management Dual Extruder DONDOLO.
 * Step per unit varied for each extruder as well as the feedrate and the acceleration.
 * Added commands to facilitate purging of hotend. 
@@ -63,31 +64,37 @@ The new features are:
 * Added total filament printed writed in SD CARD.
 * Added anti extruder idle oozing system.
 * Added Hysteresis and Z-Wobble correction (only cartesian printers).
-* Added support reader TAG width MFRC522
-* Added support NEXTION lcd touch
+* Added support reader TAG with MFRC522
+* Added support NEXTION HMI LCD TOUCH 4.3" normal/advanced, 5" advanced and 7" advanced
 * Added Cooler and Hot Chamber
 * Added Laser beam and raster base64
 * Added CNC Router
+* Added protection of the heaters if you do not print after 30 minutes on. It is important that the host gives the command M530 S1 for the start and M530 for the stop.
 * Addes Mesh Bed Level (MBL)
-* Added Stop and Save for Restart (SSR)
+* Added Restart for recovery job when power loss an return
 * Added Nozzle Clean Features
 * Added Nozzle Park Features
 * Added RGB LED
+* Added Adafruit Neopixel LED
 * Added Case Light
 * Added ABL or MBL leveling fade height
-* Added save in EEPROM ABL or MBL
-* Added Door switch
+* Added save in EEPROM ABL, MBL or UBL
+* Added Door switch for stop job when door is open
 * Added TMC2130 motor driver
 * Added TMC2208 motor driver
-* Added Power Check for Stop and Save
+* Added TMC2660 motor driver
+* Added Power Check pin for restart job
 * Added Probe Manually
 * Added LCD Bed Leveling
 * Added User menu LCD
 * Added DAV system for filament runout
 * Added Extruder Encoder for control filament movement
-* Added Adafruit Neopixel LED
 * Added DHT Sensor Temperature and Humidity (DHT11, DHT21 and DHT22)
 * Added Universal Bed Leveling (UBL) by Official Marlin
+* Added Junction Deviation instead of traditional Jerk limiting
+* Added Bézier Jerk Control see https://github.com/synthetos/TinyG/wiki/Jerk-Controlled-Motion-Explained
+* Added Text Menu to Nextion Display
+* Added Support USB FLASH DRIVE such as SD
 
 
 ## Credits

@@ -40,27 +40,36 @@
  * With PID_ADD_EXTRUSION_RATE:
  *
  *   C[float] Kc term
- *   L[float] LPQ length
+ *   L[int] LPQ length
  */
 inline void gcode_M301(void) {
 
-  // multi-hotend PID patch: M301 updates or prints a single hotend's PID values
-  // default behaviour (omitting H parameter) is to update for hotend 0 only
-  int8_t h = parser.seen('H') ? parser.value_int() : 0; // hotend being updated
+  int8_t h = 0;
 
   if (!commands.get_target_heater(h)) return;
 
-  if (parser.seen('P')) heaters[h].Kp = parser.value_float();
-  if (parser.seen('I')) heaters[h].Ki = parser.value_float();
-  if (parser.seen('D')) heaters[h].Kd = parser.value_float();
-  #if ENABLED(PID_ADD_EXTRUSION_RATE)
-    if (parser.seen('C')) heaters[h].Kc = parser.value_float();
-    if (parser.seen('L')) tools.lpq_len = parser.value_float();
-    NOMORE(tools.lpq_len, LPQ_MAX_LEN);
+  Heater *act = &heaters[h];
+
+  #if DISABLED(DISABLE_M503)
+    // No arguments? Show M301 report.
+    if (!parser.seen("PIDCL")) {
+      act->print_M301();
+      return;
+    }
   #endif
 
-  heaters[h].updatePID();
-  heaters[h].print_PID();
-  heaters[h].setTuning(true);
+  if (parser.seen('P')) act->pid.Kp = parser.value_float();
+  if (parser.seen('I')) act->pid.Ki = parser.value_float();
+  if (parser.seen('D')) act->pid.Kd = parser.value_float();
+  #if ENABLED(PID_ADD_EXTRUSION_RATE)
+    if (parser.seen('C')) act->pid.Kc = parser.value_float();
+    if (parser.seen('L')) tools.lpq_len = parser.value_int();
+    NOMORE(tools.lpq_len, LPQ_MAX_LEN);
+    NOLESS(tools.lpq_len, 0);
+  #endif
+
+  act->pid.update();
+  act->setTuning(true);
+  act->ResetFault();
 
 }

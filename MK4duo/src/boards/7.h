@@ -5,7 +5,7 @@
 
 //###CHIP
 #if DISABLED(__AVR_ATmega1280__) && DISABLED(__AVR_ATmega2560__)
-  #error Oops!  Make sure you have 'Arduino Mega' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Arduino Mega' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -105,7 +105,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -161,7 +160,7 @@
 
 
 //###IF_BLOCKS
-#if ENABLED(ULTRA_LCD)
+#if HAS_SPI_LCD
 
   #define ORIG_BEEPER_PIN     18
 
@@ -202,3 +201,4 @@
 
 #endif // ULTRA_LCD
 //@@@
+

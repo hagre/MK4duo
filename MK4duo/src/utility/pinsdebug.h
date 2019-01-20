@@ -35,8 +35,6 @@
  *
  */
 
-bool endstop_monitor_flag = false;
-
 // first pass - put the name strings into FLASH
 
 #define _ADD_PIN_2(PIN_NAME, ENTRY_NAME)    static const char ENTRY_NAME[] PROGMEM = { PIN_NAME };
@@ -48,7 +46,7 @@ bool endstop_monitor_flag = false;
 #line 47
 
 // manually add pins that have names that are macros which don't play well with these macros
-#if SERIAL_PORT == 0 && (AVR_ATmega2560_FAMILY || AVR_ATmega1284_FAMILY || ENABLED(ARDUINO_ARCH_SAM))
+#if SERIAL_PORT_1 == 0 && (AVR_ATmega2560_FAMILY || AVR_ATmega1284_FAMILY || ENABLED(ARDUINO_ARCH_SAM))
   static const char RXD_NAME[] PROGMEM = { "RXD" };
   static const char TXD_NAME[] PROGMEM = { "TXD" };
 #endif
@@ -68,7 +66,7 @@ bool endstop_monitor_flag = false;
 #define REPORT_NAME_ANALOG(COUNTER, NAME)         _ADD_PIN(analogInputToDigitalPin(NAME), COUNTER, false)
 
 typedef struct {
-  const char * const name;
+  PGM_P const name;
   pin_t pin;
   bool is_digital;
 } PinInfo;
@@ -85,7 +83,7 @@ const PinInfo pin_array[] PROGMEM = {
    */
 
   // manually add pins ...
-  #if SERIAL_PORT == 0
+  #if SERIAL_PORT_1 == 0
     #if (AVR_ATmega2560_FAMILY || ENABLED(ARDUINO_ARCH_SAM))
       { RXD_NAME, 0, true },
       { TXD_NAME, 1, true },
@@ -100,14 +98,14 @@ const PinInfo pin_array[] PROGMEM = {
 
 };
 
-#include "../HAL/HAL_pinsdebug.h"  // get the correct support file for this CPU
+#include "../platform/common/pinsdebug.h"  // get the correct support file for this CPU
 
 static void print_input_or_output(const bool isout) {
-  SERIAL_PS(isout ? PSTR("Output = ") : PSTR("Input  = "));
+  SERIAL_PGM(isout ? PSTR("Output = ") : PSTR("Input  = "));
 }
 
 // pretty report with PWM info
-inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = false, const char *start_string = "") {
+inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = false, PGM_P start_string = "") {
   char buffer[MAX_NAME_LENGTH + 1];   // for the sprintf statements
   bool found = false, multi_name_pin = false;
 
@@ -117,12 +115,12 @@ inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = fa
       found = true;
       if (!multi_name_pin) {    // report digitial and analog pin number only on the first time through
         sprintf_P(buffer, PSTR("%sPIN: "), start_string);     // digital pin number
-        SERIAL_PS(buffer);
+        SERIAL_PGM(buffer);
         PRINT_PIN(pin);
         PRINT_PORT(pin);
         if (IS_ANALOG(pin)) {
           sprintf_P(buffer, PSTR(" (A%2d)  "), DIGITAL_PIN_TO_ANALOG_PIN(pin));    // analog pin number
-          SERIAL_PS(buffer);
+          SERIAL_PGM(buffer);
         }
         else SERIAL_SP(8);   // add padding if not an analog pin
       }
@@ -151,7 +149,7 @@ inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = fa
           {
             if (!GET_ARRAY_IS_DIGITAL(pin)) {
               sprintf_P(buffer, PSTR("Analog in = %5i"), (int)analogRead(DIGITAL_PIN_TO_ANALOG_PIN(pin)));
-              SERIAL_PS(buffer);
+              SERIAL_PGM(buffer);
             }
             else {
               if (!GET_PINMODE(pin)) {
@@ -161,9 +159,15 @@ inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = fa
                 print_input_or_output(false);
                 SERIAL_VAL(digitalRead_mod(pin));
               }
-              else if (pwm_status(pin)) {
-                // do nothing
-              }
+              #if ENABLED(CPU_32_BIT)
+                else if (HAL::pwm_status(pin) || HAL::tc_status(pin)) {
+                  // do nothing
+                }
+              #else
+                else if (pwm_status(pin)) {
+                  // do nothing
+                }
+              #endif
               else {
                 print_input_or_output(true);
                 SERIAL_VAL(digitalRead_mod(pin));
@@ -179,12 +183,12 @@ inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = fa
 
   if (!found) {
     sprintf_P(buffer, PSTR("%sPIN: "), start_string);
-    SERIAL_PS(buffer);
+    SERIAL_PGM(buffer);
     PRINT_PIN(pin);
     PRINT_PORT(pin);
     if (IS_ANALOG(pin)) {
       sprintf_P(buffer, PSTR(" (A%2i)  "), DIGITAL_PIN_TO_ANALOG_PIN(pin));    // analog pin number
-      SERIAL_PS(buffer);
+      SERIAL_PGM(buffer);
     }
     else
       SERIAL_SP(8);   // add padding if not an analog pin
@@ -213,7 +217,7 @@ inline void report_pin_state_extended(pin_t pin, bool ignore, bool extended = fa
         else {
           if (IS_ANALOG(pin)) {
             sprintf_P(buffer, PSTR("   Analog in = %5d"), (int)analogRead(DIGITAL_PIN_TO_ANALOG_PIN(pin)));
-            SERIAL_PS(buffer);
+            SERIAL_PGM(buffer);
             SERIAL_MSG("   ");
           }
           else

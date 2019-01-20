@@ -36,36 +36,33 @@
    * M1: Same as M0
    */
   inline void gcode_M0_M1(void) {
-    const char * const args = parser.string_arg;
 
+    PGM_P const args = parser.string_arg;
     millis_t ms = 0;
     bool hasP = false, hasS = false;
+
     if (parser.seenval('P')) {
       ms = parser.value_millis(); // milliseconds to wait
       hasP = ms > 0;
     }
+
     if (parser.seenval('S')) {
       ms = parser.value_millis_from_seconds(); // seconds to wait
       hasS = ms > 0;
     }
 
+    planner.synchronize();
+
     #if ENABLED(ULTIPANEL)
 
       if (!hasP && !hasS && args && *args)
-        lcd_setstatus(args, true);
+        lcdui.set_status(args, true);
       else {
         LCD_MESSAGEPGM(MSG_USERWAIT);
         #if ENABLED(LCD_PROGRESS_BAR) && PROGRESS_MSG_EXPIRE > 0
           dontExpireStatus();
         #endif
       }
-
-    #elif ENABLED(NEXTION)
-
-      if (!hasP && !hasS && args && *args)
-        lcd_yesno(args, "", MSG_USERWAIT);
-      else
-        lcd_yesno(MSG_USERWAIT);
 
     #else
 
@@ -74,26 +71,19 @@
 
     #endif
 
-    printer.setWaitForUser(true);
     printer.keepalive(PausedforUser);
-
-    stepper.synchronize();
-    commands.refresh_cmd_timeout();
+    printer.setWaitForUser(true);
 
     if (ms > 0) {
-      ms += commands.previous_cmd_ms;  // wait until this time for a click
+      ms += millis();
       while (PENDING(millis(), ms) && printer.isWaitForUser()) printer.idle();
     }
-    else {
-      #if ENABLED(ULTIPANEL)
-        if (lcd_detected()) {
-          while (printer.isWaitForUser()) printer.idle();
-          IS_SD_PRINTING ? LCD_MESSAGEPGM(MSG_RESUMING) : LCD_MESSAGEPGM(WELCOME_MSG);
-        }
-      #else
-        while (printer.isWaitForUser()) printer.idle();
-      #endif
-    }
+    else
+      while (printer.isWaitForUser()) printer.idle();
+
+    #if ENABLED(ULTIPANEL)
+      lcdui.reset_status();
+    #endif
 
     printer.setWaitForUser(false);
     printer.keepalive(InHandler);

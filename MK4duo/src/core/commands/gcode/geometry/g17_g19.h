@@ -34,14 +34,14 @@
 
   void report_workspace_plane() {
     SERIAL_SM(ECHO, "Workspace Plane ");
-    SERIAL_PS(
+    SERIAL_PGM(
         mechanics.workspace_plane == mechanics.PLANE_YZ ? PSTR("YZ\n")
       : mechanics.workspace_plane == mechanics.PLANE_ZX ? PSTR("ZX\n")
                                               : PSTR("XY\n")
     );
   }
 
-  void set_workspace_plane(const Mechanics::WorkspacePlane plane) {
+  void set_workspace_plane(const WorkspacePlaneEnum plane) {
     mechanics.workspace_plane = plane;
     if (printer.debugInfo()) report_workspace_plane();
   }

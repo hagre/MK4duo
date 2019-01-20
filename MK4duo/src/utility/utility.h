@@ -19,9 +19,24 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
-#ifndef __UTILITY_H__
-#define __UTILITY_H__
+//
+// Utility functions to create and print hex strings as nybble, byte, and word.
+//
+FORCE_INLINE char hex_nybble(const uint8_t n) {
+  return (n & 0xF) + ((n & 0xF) < 10 ? '0' : 'A' - 10);
+}
+
+char* hex_byte(const uint8_t b);
+char* hex_word(const uint16_t w);
+char* hex_address(const void * const w);
+
+void print_hex_nybble(const uint8_t n);
+void print_hex_byte(const uint8_t b);
+void print_hex_word(const uint16_t w);
+void print_hex_address(const void * const w);
+void print_hex_long(const uint32_t w, const char delimiter);
 
 #if ENABLED(AUTO_BED_LEVELING_UBL) || ENABLED(G26_MESH_VALIDATION)
 
@@ -37,57 +52,77 @@
 
 #endif
 
+//
+// Utility functions to convert number into string
+//
+
+// Convert float length to string
+void lengthtoString(char *buffer, const float length);
+
+// Crc 16 bit for eeprom check
+void crc16(uint16_t *crc, const void * const data, uint16_t cnt);
+
+// Convert uint8_t to string with 1 format
+char* ui8tostr1(const uint8_t i);
+
 // Convert uint8_t to string with 123 format
-char* i8tostr3(const uint8_t x);
+char* ui8tostr3(const uint8_t i);
 
-// Convert unsigned int to string with 12 format
-char* itostr2(const uint8_t &xx);
+// Convert signed 8bit int to rj string with 123 or -12 format
+char* i8tostr3(const int8_t i);
 
-// Convert signed int to rj string with 123 or -12 format
-char* itostr3(const int &xx);
+// Convert uint16_t to string with 123 format
+char* ui16tostr3(const uint16_t i);
+
+// Convert uint16_t to string with 1234 format
+char* ui16tostr4(const uint16_t i);
+
+// Convert uint32_t to string with 1234 format
+char* ui32tostr4(const uint32_t i);
+
+// Convert int16_t to string with 123 format
+char* i16tostr3(const int16_t i);
 
 // Convert unsigned int to lj string with 123 format
-char* itostr3left(const int &xx);
+char* i16tostr3left(const int16_t i);
 
 // Convert signed int to rj string with _123, -123, _-12, or __-1 format
-char *itostr4sign(const int &x);
+char* i16tostr4sign(const int16_t i);
 
 // Convert unsigned float to string with 1.23 format
-char* ftostr12ns(const float &x);
+char* ftostr12ns(const float &f);
 
 // Convert signed float to fixed-length string with 023.45 / -23.45 format
-char *ftostr32(const float &x);
+char* ftostr52(const float &f);
 
 // Convert float to fixed-length string with +123.4 / -123.4 format
-char* ftostr41sign(const float &x);
+char* ftostr41sign(const float &f);
 
 // Convert signed float to string (6 digit) with -1.234 / _0.000 / +1.234 format
-char* ftostr43sign(const float &x, char plus=' ');
+char* ftostr43sign(const float &f, char plus=' ');
 
 // Convert unsigned float to rj string with 12345 format
-char* ftostr5rj(const float &x);
+char* ftostr5rj(const float &f);
 
 // Convert signed float to string with +1234.5 format
-char* ftostr51sign(const float &x);
+char* ftostr51sign(const float &f);
 
 // Convert signed float to space-padded string with -_23.4_ format
-char* ftostr52sp(const float &x);
+char* ftostr52sp(const float &f);
 
 // Convert signed float to string with +123.45 format
-char* ftostr52sign(const float &x);
+char* ftostr52sign(const float &f);
 
 // Convert unsigned float to string with 1234.56 format omitting trailing zeros
-char* ftostr62rj(const float &x);
+char* ftostr62rj(const float &f);
 
 // Convert float to rj string with 123 or -12 format
-FORCE_INLINE char *ftostr3(const float &x) { return itostr3((int)x); }
+FORCE_INLINE char* ftostr3(const float &f) { return i16tostr3(int16_t(f + (f < 0 ? -0.5f : 0.5f))); }
 
 #if ENABLED(LCD_DECIMAL_SMALL_XY)
   // Convert float to rj string with 1234, _123, 12.3, _1.2, -123, _-12, or -1.2 format
-  char *ftostr4sign(const float &fx);
+  char* ftostr4sign(const float &f);
 #else
   // Convert float to rj string with 1234, _123, -123, __12, _-12, ___1, or __-1 format
-  FORCE_INLINE char *ftostr4sign(const float &fx) { return itostr4sign((int)fx); }
+  FORCE_INLINE char* ftostr4sign(const float &f) { return i16tostr4sign(int16_t(f + (f < 0 ? -0.5f : 0.5f))); }
 #endif
-
-#endif /* __UTILITY_H__ */

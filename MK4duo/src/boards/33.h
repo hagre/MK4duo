@@ -6,7 +6,7 @@
 
 //###CHIP
 #if DISABLED(__AVR_ATmega1280__) && DISABLED(__AVR_ATmega2560__)
-  #error Oops!  Make sure you have 'Arduino Mega' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Arduino Mega' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -106,7 +106,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -160,9 +159,12 @@
 #define ORIG_LASER_PWM_PIN          6
 
 
+//###UNKNOWN_PINS
+#define MAX6675_SS_PIN             66
+//@@@
 
 //###IF_BLOCKS
-#if ENABLED(ULTRA_LCD)
+#if HAS_SPI_LCD
 
   //
   // LCD Display output pins
@@ -193,6 +195,15 @@
       #if DISABLED(NEWPANEL)
         #define ORIG_BEEPER_PIN 37
       #endif
+
+    #elif ENABLED(ZONESTAR_LCD)
+
+      #define LCD_PINS_RS       64
+      #define LCD_PINS_ENABLE   44
+      #define LCD_PINS_D4       63
+      #define LCD_PINS_D5       40
+      #define LCD_PINS_D6       42
+      #define LCD_PINS_D7       65
 
     #else
 
@@ -393,11 +404,5 @@
   #endif // NEWPANEL
 
 #endif // ULTRA_LCD
-
-// SPI for Max6675 or Max31855 Thermocouple
-#if DISABLED(SDSUPPORT)
-  #define MAX6675_SS_PIN            66
-#else
-  #define MAX6675_SS_PIN            66
-#endif
 //@@@
+

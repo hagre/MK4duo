@@ -26,68 +26,96 @@
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
 
-#ifndef _FAN_H_
-#define _FAN_H_
+#pragma once
+
+#if ENABLED(TACHOMETRIC)
+  #include "tachometric.h"
+#endif
+
+union flagfan_t {
+  bool all;
+  struct {
+    bool  isHWInverted  : 1;
+    bool  isIdle        : 1;
+    bool  bit2          : 1;
+    bool  bit3          : 1;
+    bool  bit4          : 1;
+    bool  bit5          : 1;
+    bool  bit6          : 1;
+    bool  bit7          : 1;
+  };
+  flagfan_t() { all = false; }
+};
+
+// Struct Fan data
+typedef struct {
+
+  pin_t       pin;
+
+  flagfan_t   flag;
+
+  uint8_t     ID,
+              min_Speed,
+              max_Speed,
+              autoMonitored;
+
+  uint16_t    triggerTemperature,
+              freq;
+
+} fan_data_t;
+
+class Fan {
+
+  public: /** Constructor */
+
+    Fan() {}
+
+  public: /** Public Parameters */
+
+    fan_data_t  data;
+
+    #if ENABLED(TACHOMETRIC)
+      tacho_data_t tacho;
+    #endif
+
+    uint8_t     Speed,
+                paused_Speed,
+                scaled_Speed,
+                Kickstart;
+
+  public: /** Public Function */
+
+    void init();
+    void setAutoMonitored(const int8_t h);
+    void setOutputPwm();
+    void spin();
+    void print_M106();
+
+    inline uint8_t actual_Speed() { return ((Kickstart ? data.max_Speed : Speed) * scaled_Speed) >> 7; }
+    inline uint8_t percent() { return (int(actual_Speed()) * 100) / 255; }
+
+    // Fan flag bit 0 Hardware inverted
+    FORCE_INLINE void setHWInverted(const bool onoff) {
+      data.flag.isHWInverted = onoff;
+    }
+    FORCE_INLINE bool isHWInverted() { return data.flag.isHWInverted; }
+
+    // Fan flag bit 1 Idle
+    FORCE_INLINE void setIdle(const bool onoff) {
+      if (onoff != isIdle()) {
+        data.flag.isIdle = onoff;
+        if (onoff) {
+          paused_Speed = Speed;
+          Speed = 0;
+        }
+        else
+          Speed = paused_Speed;
+      }
+    }
+    FORCE_INLINE bool isIdle() { return data.flag.isIdle; }
+
+};
 
 #if FAN_COUNT > 0
-
-  enum FlagFans {
-    fan_flag_hardware_inverted,
-    fan_flag_idle
-  };
-
-  class Fan {
-
-    public: /** Constructor */
-
-      Fan() {}
-
-    public: /** Public Parameters */
-
-      pin_t     pin;
-      uint8_t   Speed,
-                min_Speed,
-                paused_Speed,
-                Kickstart,
-                pwm_pos,
-                autoMonitored,
-                FanFlag;
-      uint16_t  freq,
-                triggerTemperatures;
-      int16_t   lastpwm;
-
-    public: /** Public Function */
-
-      void init();
-      void SetAutoMonitored(const int8_t h);
-      void spin();
-
-      FORCE_INLINE void setHWInverted(const bool onoff) {
-        SET_BIT(FanFlag, fan_flag_hardware_inverted, onoff);
-      }
-      FORCE_INLINE bool isHWInverted() { return TEST(FanFlag, fan_flag_hardware_inverted); }
-
-      FORCE_INLINE void setIdle(const bool onoff) {
-        if (onoff != isIdle()) {
-          SET_BIT(FanFlag, fan_flag_idle, onoff);
-          if (onoff) {
-            paused_Speed = Speed;
-            Speed = 0;
-          }
-          else
-            Speed = paused_Speed;
-        }
-      }
-      FORCE_INLINE bool isIdle() { return TEST(FanFlag, fan_flag_idle); }
-
-      #if HARDWARE_PWM
-        void SetHardwarePwm();
-      #endif
-
-  };
-
   extern Fan fans[FAN_COUNT];
-
 #endif // FAN_COUNT > 0
-
-#endif /* _FAN_H_ */

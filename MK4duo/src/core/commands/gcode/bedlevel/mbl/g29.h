@@ -31,7 +31,10 @@
   #define CODE_G29
 
   // Save 130 bytes with non-duplication of PSTR
-  void say_not_entered() { SERIAL_EM(" not entered."); }
+  inline void say_not_entered(const char c) {
+    SERIAL_CHR(c);
+    SERIAL_EM(" not entered.");
+  }
 
   /**
    * G29: Mesh-based Z probe, probes a grid and produces a
@@ -61,7 +64,7 @@
       static bool enable_soft_endstops;
     #endif
 
-    const MeshLevelingState state = (MeshLevelingState)parser.byteval('S', (int8_t)MeshReport);
+    MeshLevelingStateEnum state = (MeshLevelingStateEnum)parser.byteval('S', (int8_t)MeshReport);
     if (state > 5) {
       SERIAL_MSG("S out of range (0-5).");
       return;
@@ -72,7 +75,7 @@
     switch (state) {
       case MeshReport:
         if (bedlevel.leveling_is_valid()) {
-          SERIAL_EMT("State: ", bedlevel.leveling_active ? MSG_ON : MSG_OFF);
+          SERIAL_EONOFF("State: ", bedlevel.flag.leveling_active);
           mbl.report_mesh();
         }
         else
@@ -82,8 +85,11 @@
       case MeshStart:
         mbl.reset();
         mbl_probe_index = 0;
-        commands.enqueue_and_echo_P(lcd_wait_for_move ? PSTR("G29 S2") : PSTR("G28\nG29 S2"));
-        break;
+        if (!lcdui.wait_for_bl_move) {
+          commands.enqueue_and_echo_P(PSTR("G28\nG29 S2"));
+          return;
+        }
+        state = MeshNext;
 
       case MeshNext:
         if (mbl_probe_index < 0) {
@@ -96,9 +102,11 @@
             // For the initial G29 S2 save software endstop state
             enable_soft_endstops = endstops.isSoftEndstop();
           #endif
+          // Move close to the bed before the first point
+          mechanics.do_blocking_move_to_z(0);
         }
         else {
-          // For G29 S2 after adjusting Z.
+          // Save Z for the previous mesh position
           mbl.set_zigzag_z(mbl_probe_index - 1, mechanics.current_position[Z_AXIS]);
           #if HAS_SOFTWARE_ENDSTOPS
             endstops.setSoftEndstop(enable_soft_endstops);
@@ -106,41 +114,38 @@
         }
         // If there's another point to sample, move there with optional lift.
         if (mbl_probe_index < GRID_MAX_POINTS) {
-          mbl.zigzag(mbl_probe_index, px, py);
-          bedlevel.manual_goto_xy(mbl.index_to_xpos[px], mbl.index_to_ypos[py]);
-
           #if HAS_SOFTWARE_ENDSTOPS
             // Disable software endstops to allow manual adjustment
             // If G29 is not completed, they will not be re-enabled
             endstops.setSoftEndstop(false);
           #endif
 
-          mbl_probe_index++;
+          mbl.zigzag(mbl_probe_index++, px, py);
+          bedlevel.manual_goto_xy(mbl.index_to_xpos[px], mbl.index_to_ypos[py]);
         }
         else {
           // One last "return to the bed" (as originally coded) at completion
-          mechanics.current_position[Z_AXIS] = Z_MIN_POS + MANUAL_PROBE_HEIGHT;
+          mechanics.current_position[Z_AXIS] = MANUAL_PROBE_HEIGHT;
           mechanics.line_to_current_position();
-          stepper.synchronize();
+          planner.synchronize();
 
           // After recording the last point, activate the mbl and home
           mbl_probe_index = -1;
           SERIAL_EM("Mesh probing done.");
-          BUZZ(100, 659);
-          BUZZ(100, 698);
+          sound.feedback();
 
-          mechanics.home(true);
+          mechanics.home();
           bedlevel.set_bed_leveling_enabled(true);
 
           #if ENABLED(MESH_G28_REST_ORIGIN)
-            mechanics.current_position[Z_AXIS] = Z_MIN_POS;
+            mechanics.current_position[Z_AXIS] = 0;
             mechanics.set_destination_to_current();
             mechanics.line_to_destination(mechanics.homing_feedrate_mm_s[Z_AXIS]);
-            stepper.synchronize();
+            planner.synchronize();
           #endif
 
           #if ENABLED(LCD_BED_LEVELING)
-            lcd_wait_for_move = false;
+            lcdui.wait_for_bl_move = false;
           #endif
         }
         break;
@@ -149,24 +154,26 @@
         if (parser.seenval('X')) {
           px = parser.value_int() - 1;
           if (!WITHIN(px, 0, GRID_MAX_POINTS_X - 1)) {
-            SERIAL_EM("X out of range (1-" STRINGIFY(GRID_MAX_POINTS_X) ").");
+            SERIAL_MV("X out of range (0-", int(GRID_MAX_POINTS_X));
+            SERIAL_EM(")");
             return;
           }
         }
         else {
-          SERIAL_CHR('X'); say_not_entered();
+          say_not_entered('X');
           return;
         }
 
         if (parser.seenval('Y')) {
           py = parser.value_int() - 1;
           if (!WITHIN(py, 0, GRID_MAX_POINTS_Y - 1)) {
-            SERIAL_EM("Y out of range (1-" STRINGIFY(GRID_MAX_POINTS_Y) ").");
+            SERIAL_MV("Y out of range (0-", int(GRID_MAX_POINTS_Y));
+            SERIAL_EM(")");
             return;
           }
         }
         else {
-          SERIAL_CHR('Y'); say_not_entered();
+          say_not_entered('Y');
           return;
         }
 
@@ -174,7 +181,7 @@
           mbl.z_values[px][py] = parser.value_linear_units();
         }
         else {
-          SERIAL_CHR('Z'); say_not_entered();
+          say_not_entered('Z');
           return;
         }
 
@@ -185,7 +192,7 @@
           mbl.z_offset = parser.value_linear_units();
         }
         else {
-          SERIAL_CHR('Z'); say_not_entered();
+          say_not_entered('Z');
           return;
         }
         break;
@@ -196,8 +203,8 @@
 
     } // switch(state)
 
-    if (state == MeshStart || state == MeshNext) {
-      SERIAL_MV("MBL G29 point ", min(mbl_probe_index, GRID_MAX_POINTS));
+    if (state == MeshNext) {
+      SERIAL_MV("MBL G29 point ", MIN(mbl_probe_index, GRID_MAX_POINTS));
       SERIAL_EMV(" of ", int(GRID_MAX_POINTS));
     }
 

@@ -33,10 +33,25 @@
  *      (Follows the same syntax as G92)
  *
  *      With multiple extruders use T to specify which one.
+ *
+ *      If no argument is given print the current values.
+ *
+ *    With MAGIC_NUMBERS_GCODE:
+ *      Use 'H' and/or 'L' to get ideal layer-height information.
+ *      'H' specifies micro-steps to use. We guess if it's not supplied.
+ *      'L' specifies a desired layer height. Nearest good heights are shown.
  */
 inline void gcode_M92(void) {
 
-  GET_TARGET_EXTRUDER(92);
+  if (commands.get_target_tool(92)) return;
+
+  #if DISABLED(DISABLE_M503)
+    // No arguments? Show M92 report.
+    if (!parser.seen("XYZEHL")) {
+      mechanics.print_M92();
+      return;
+    }
+  #endif
 
   LOOP_XYZE(i) {
     if (parser.seen(axis_codes[i])) {
@@ -44,22 +59,43 @@ inline void gcode_M92(void) {
       const float value = parser.value_per_axis_unit((AxisEnum)a);
       if (i == E_AXIS) {
         if (value < 20.0) {
-          float factor = mechanics.axis_steps_per_mm[a] / value; // increase e constants if M92 E14 is given for netfab.
-          mechanics.max_jerk[a] *= factor;
-          mechanics.max_feedrate_mm_s[a] *= factor;
+          float factor = mechanics.data.axis_steps_per_mm[a] / value; // increase e constants if M92 E14 is given for netfab.
+          #if HAS_CLASSIC_JERK && (DISABLED(JUNCTION_DEVIATION) || DISABLED(LIN_ADVANCE))
+            mechanics.data.max_jerk[a] *= factor;
+          #endif
+          mechanics.data.max_feedrate_mm_s[a] *= factor;
           mechanics.max_acceleration_steps_per_s2[a] *= factor;
         }
-        mechanics.axis_steps_per_mm[a] = value;
+        mechanics.data.axis_steps_per_mm[a] = value;
       }
       else {
         #if MECH(DELTA)
           LOOP_XYZ(axis)
-            mechanics.axis_steps_per_mm[axis] = value;
+            mechanics.data.axis_steps_per_mm[axis] = value;
         #else
-          mechanics.axis_steps_per_mm[a] = value;
+          mechanics.data.axis_steps_per_mm[a] = value;
         #endif
       }
     }
   }
-  mechanics.refresh_positioning();
+
+  planner.refresh_positioning();
+
+  const float layer_wanted = parser.floatval('L');
+  if (parser.seen('H') || layer_wanted) {
+    const uint16_t argH = parser.ushortval('H'),
+                   micro_steps = argH ? argH : 1;
+    const float minimum_layer_height = micro_steps * mechanics.steps_to_mm[Z_AXIS];
+    SERIAL_SMV(ECHO, "{ micro steps:", micro_steps);
+    SERIAL_MV(", minimum layer height:", minimum_layer_height, 3);
+    if (layer_wanted) {
+      const float layer = uint16_t(layer_wanted / minimum_layer_height) * minimum_layer_height;
+      SERIAL_MV(", layer:[", layer);
+      if (layer != layer_wanted)
+        SERIAL_MV(",", layer + minimum_layer_height, 3);
+      SERIAL_CHR(']');
+    }
+    SERIAL_EM(" }");
+  }
+
 }

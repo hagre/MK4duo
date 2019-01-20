@@ -19,6 +19,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * gcode.h
@@ -41,6 +42,7 @@
 // Calibrate Commands
 #include "calibrate/g28.h"                // Home
 #include "calibrate/m48.h"                // Repeatability probe
+#include "calibrate/m666.h"               // Set Two Endstops offsets
 
 // Config Commands
 #include "config/m92.h"
@@ -55,11 +57,13 @@
 #include "config/m220.h"                  // Set speed percentage
 #include "config/m221.h"                  // Set extrusion percentage
 #include "config/m222.h"                  // Set density
+#include "config/m223_m224.h"             // Set Logic or Pullup filrunout
 #include "config/m301.h"                  // Set PID parameters Heater
 #include "config/m302.h"                  // Allow cold extrudes
 #include "config/m305.h"                  // Set thermistor and ADC parameters
 #include "config/m306.h"                  // Set Heaters
 #include "config/m595.h"                  // Set AD595 offset & Gain
+#include "config/m569.h"                  // Set Stepper Direction
 #include "config/m900.h"                  // Set and/or Get advance K factor
 #include "config/m906.h"                  // Set Alligator motor currents or Set motor current in milliamps with have a TMC2130 driver
 #include "config/m907.h"                  // Set digital trimpot motor current
@@ -76,7 +80,6 @@
 #include "control/m121.h"
 #include "control/m122.h"
 #include "control/m226.h"                 // Wait until a pin
-#include "control/m280.h"                 // Servo
 #include "control/m350_m351.h"            // Microstep
 #include "control/m355.h"                 // Set Case Light
 #include "control/m380_m381.h"            // Extruder Solenoid
@@ -85,6 +88,7 @@
 #include "control/m540.h"                 // Enable/disable SD card abort on endstop hit
 #include "control/m605.h"                 // Set dual x-carriage movement mode
 #include "control/m999.h"                 // Restart after being stopped
+#include "control/m9999.h"                // Banzai code for erase bootloader on DUE
 
 // Debug Commands
 #include "debug/m43.h"
@@ -93,6 +97,7 @@
 // Delta Commands
 #include "delta/g33_type1.h"              // Autocalibration 7 point
 #include "delta/g33_type2.h"              // Autocalibration matrix
+#include "delta/g34.h"                    // Set Delta Height
 #include "delta/m666.h"                   // Set delta parameters
 
 // EEPROM Commands
@@ -103,8 +108,7 @@
 #include "feature/g27.h"
 #include "feature/g60.h"
 #include "feature/g61.h"
-#include "feature/m96_m97.h"
-#include "feature/m98_m99.h"
+#include "feature/m99.h"                  // Hysteresis feature
 #include "feature/m100.h"                 // Free Memory Watcher
 #include "feature/m125.h"
 #include "feature/m126_m129.h"            // Solenoid feature
@@ -113,7 +117,11 @@
 #include "feature/m600.h"                 // Advanced Pause change filament
 #include "feature/m603.h"                 // Configure filament change
 #include "feature/m701_m702.h"            // Load / Unload filament
-#include "feature/m911_m915.h"            // Set TMC2130 driver
+#include "feature/m413.h"                 // Restart Job
+#include "feature/m800.h"                 // Restart Job
+#include "feature/m911_m915.h"            // Set TRINAMIC driver
+#include "feature/m930_m939.h"            // Set TRINAMIC driver
+#include "feature/m940_m942.h"            // Set TRINAMIC driver
 #include "feature/m922.h"                 // TMC DEBUG
 
 // Geometry Commands
@@ -133,7 +141,7 @@
 #include "host/m408.h"                    // Json output
 #include "host/m530.h"                    // Enables explicit printing mode
 #include "host/m531.h"                    // Define filename being printed
-#include "host/m532.h"                    // Update current print state progress
+#include "host/m532_m73.h"                // Update current print state progress
 
 // LCD Commands
 #include "lcd/m0_m1.h"
@@ -184,6 +192,10 @@
 // Rfid Commands
 #include "rfid/m522.h"                    // Rfid read and write
 
+// Servo Commands
+#include "servo/m280.h"                   // Servo move
+#include "servo/m281.h"                   // Servo Angles
+
 // Scara Commands
 #include "scara/m360_m364.h"
 #include "scara/m665.h"
@@ -209,6 +221,7 @@
 #include "temperature/m105.h"
 #include "temperature/m108.h"
 #include "temperature/m109.h"
+#include "temperature/m116.h"
 #include "temperature/m140.h"
 #include "temperature/m141.h"
 #include "temperature/m142.h"
@@ -227,9 +240,11 @@
 #include "units/m83.h"
 #include "units/m149.h"
 
-// Table for G and M code
-#include "table_gcode.h"
-#include "table_mcode.h"
+#if ENABLED(FASTER_GCODE_EXECUTE) || ENABLED(ARDUINO_ARCH_SAM)
+  // Table for G and M code
+  #include "table_gcode.h"
+  #include "table_mcode.h"
 
-// Include m44 post define table for debugging
-#include "debug/m44_post_table.h"
+  // Include m44 post define table for debugging
+  #include "debug/m44_post_table.h"
+#endif

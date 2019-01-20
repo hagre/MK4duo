@@ -3,11 +3,6 @@
 * Mini Rambo 1.0a
 ****************************************************************************************/
 
-//###CHIP
-#if DISABLED(__AVR_ATmega2560__)
-  #error "Oops!  Make sure you have 'Rambo' selected from the 'Tools -> Boards' menu."
-#endif
-//@@@
 
 #define KNOWN_BOARD 1
 
@@ -105,7 +100,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           23
 
 //###SINGLE_ENDSTOP
@@ -186,7 +180,7 @@
 #endif
 #define DEFAULT_PWM_MOTOR_CURRENT  {1300, 1300, 1250}
 
-#if ENABLED(ULTRA_LCD)
+#if HAS_SPI_LCD
 
   #if ENABLED(NEWPANEL)
 
@@ -209,3 +203,4 @@
 
 #endif // ULTRA_LCD
 //@@@
+

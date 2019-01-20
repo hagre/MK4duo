@@ -26,7 +26,7 @@
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
 
-#if HAS_TEMP_CHAMBER
+#if HAS_HEATER_CHAMBER
 
   #define CODE_M191
 
@@ -39,9 +39,11 @@
 
     LCD_MESSAGEPGM(MSG_CHAMBER_HEATING);
     bool no_wait_for_cooling = parser.seen('S');
-    if (no_wait_for_cooling || parser.seen('R')) heaters[CHAMBER_INDEX].setTarget(parser.value_celsius());
+    if (no_wait_for_cooling || parser.seen('R'))
+      heaters[CHAMBER_INDEX].setTarget(parser.value_celsius());
+    else return;
 
-    thermalManager.wait_heater(&heaters[CHAMBER_INDEX], no_wait_for_cooling);
+    heaters[CHAMBER_INDEX].waitForTarget(no_wait_for_cooling);
   }
 
-#endif // HAS_TEMP_CHAMBER
+#endif // HAS_HEATER_CHAMBER

@@ -19,15 +19,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * tools.h
  *
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
-
-#ifndef _TOOLS_H_
-#define _TOOLS_H_
 
 #if EXTRUDERS > 0
 
@@ -41,8 +39,7 @@
 
       static uint8_t  active_extruder,
                       previous_extruder,
-                      target_extruder,
-                      active_driver;
+                      target_extruder;
 
       static int16_t  flow_percentage[EXTRUDERS],       // Extrusion factor for each extruder
                       density_percentage[EXTRUDERS];    // Extrusion density factor for each extruder
@@ -67,12 +64,14 @@
       #endif
 
       #if ENABLED(PID_ADD_EXTRUSION_RATE)
-        static int lpq_len;
+        static int16_t lpq_len;
       #endif
 
     public: /** Public Function */
 
       static void change(const uint8_t tmp_extruder, const float fr_mm_s=0.0, bool no_move=false);
+
+      static void print_M218(const uint8_t h);
 
       FORCE_INLINE static void refresh_e_factor(const uint8_t e) {
         e_factor[e] =  (flow_percentage[e] * 0.01
@@ -95,14 +94,6 @@
 
       #endif
 
-      #if HAS_MKMULTI_TOOLS
-        static void MK_multi_tool_change(const uint8_t e);
-      #endif
-
-      #if HAS_DONDOLO
-        static void move_extruder_servo(const uint8_t e);
-      #endif
-
       #if ENABLED(EXT_SOLENOID)
         static void enable_solenoid(const uint8_t e);
         static void enable_solenoid_on_active_extruder();
@@ -117,10 +108,20 @@
         static float calculate_volumetric_multiplier(const float diameter);
       #endif
 
+      #if HAS_MKMULTI_TOOLS
+        static void MK_multi_tool_change(const uint8_t e);
+      #endif
+
+      #if HAS_DONDOLO
+        static void move_extruder_servo(const uint8_t e);
+      #endif
+
+      #if ENABLED(DUAL_X_CARRIAGE)
+        static void dualx_tool_change(const uint8_t tmp_extruder, bool &no_move);
+      #endif
+
   };
 
   extern Tools tools;
 
 #endif
-
-#endif /* _TOOLS_H_ */

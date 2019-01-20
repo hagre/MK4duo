@@ -4,8 +4,8 @@
 ****************************************************************************************/
 
 //###CHIP
-#if DISABLED(__AVR_ATmega644P__) && DISABLED(__AVR_ATmega1284P__)
-  #error Oops!  Make sure you have 'Sanguino' or 'Anet' selected from the 'Tools -> Boards' menu.
+#if DISABLED(__AVR_ATmega644__) && DISABLED(__AVR_ATmega644P__) && DISABLED(__AVR_ATmega1284P__)
+  #error "Oops! Select 'Sanguino' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -105,7 +105,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -169,9 +168,9 @@
  *  ANET_FULL_GRAPHICS_LCD
  *  REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER
 */
-#if ENABLED(ULTRA_LCD) && ENABLED(NEWPANEL)
+#if HAS_SPI_LCD
   #define LCD_SDSS           28
-  #if ENABLED(ADC_KEYPAD)
+  #if HAS_ADC_BUTTONS
     #define SERVO0_PIN       27 // free for BLTouch/3D-Touch
     #define LCD_PINS_RS      28
     #define LCD_PINS_ENABLE  29
@@ -196,9 +195,15 @@
     #define BTN_EN1          11
     #define BTN_EN2          10
     #define BTN_ENC          16
-    #define ST7920_DELAY_1 DELAY_0_NOP
-    #define ST7920_DELAY_2 DELAY_1_NOP
-    #define ST7920_DELAY_3 DELAY_2_NOP
+    #ifndef ST7920_DELAY_1
+      #define ST7920_DELAY_1 DELAY_NS(0)
+    #endif
+    #ifndef ST7920_DELAY_2
+      #define ST7920_DELAY_2 DELAY_NS(63)
+    #endif
+    #ifndef ST7920_DELAY_3
+      #define ST7920_DELAY_3 DELAY_NS(125)
+    #endif
     #define STD_ENCODER_PULSES_PER_STEP 4
     #define STD_ENCODER_STEPS_PER_MENU_ITEM 1
   #endif
@@ -206,3 +211,4 @@
   #define SERVO0_PIN         27
 #endif
 //@@@
+

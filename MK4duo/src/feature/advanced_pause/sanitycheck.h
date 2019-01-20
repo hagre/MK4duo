@@ -19,6 +19,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * sanitycheck.h
@@ -26,15 +27,12 @@
  * Test configuration values for errors at compile-time.
  */
 
-#ifndef _ADVANCED_PAUSE_SANITYCHECK_H_
-#define _ADVANCED_PAUSE_SANITYCHECK_H_
-
 #if ENABLED(ADVANCED_PAUSE_FEATURE)
   #if EXTRUDERS == 0
     #error "DEPENDENCY ERROR: ADVANCED_PAUSE_FEATURE currently requires extruders."
   #endif
-  #if !HAS_LCD
-    #error "DEPENDENCY ERROR: ADVANCED_PAUSE_FEATURE currently requires an LCD controller."
+  #if !HAS_LCD_MENU
+    #error "DEPENDENCY ERROR: ADVANCED_PAUSE_FEATURE currently requires a LCD MENU."
   #elif DISABLED(NOZZLE_PARK_FEATURE)
     #error "DEPENDENCY ERROR: ADVANCED_PAUSE_FEATURE currently requires NOZZLE_PARK_FEATURE."
   #elif ENABLED(EXTRUDER_RUNOUT_PREVENT)
@@ -54,5 +52,3 @@
     #error "DEPENDENCY ERROR: PARK_HEAD_ON_PAUSE currently requires ADVANCED_PAUSE_FEATURE."
   #endif
 #endif
-
-#endif /* _ADVANCED_PAUSE_SANITYCHECK_H_ */

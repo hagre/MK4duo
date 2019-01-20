@@ -5,7 +5,7 @@
 
 //###CHIP
 #if DISABLED(__AVR_ATmega1280__) && DISABLED(__AVR_ATmega2560__)
-  #error Oops!  Make sure you have 'Arduino Mega' selected from the 'Tools -> Boards' menu.
+  #error "Oops! Select 'Arduino Mega' in 'Tools > Board.'"
 #endif
 //@@@
 
@@ -105,7 +105,6 @@
 #define ORIG_Z3_MAX_PIN            NoPin
 #define ORIG_Z4_MIN_PIN            NoPin
 #define ORIG_Z4_MAX_PIN            NoPin
-#define ORIG_E_MIN_PIN             NoPin
 #define ORIG_Z_PROBE_PIN           NoPin
 
 //###SINGLE_ENDSTOP
@@ -160,7 +159,7 @@
 
 
 //###UNKNOWN_PINS
-#define MAX6675_SS_PIN              66  // Do not use pin 49 as this is tied to the switch inside the SD card socket to detect if there is an SD card present
+#define MAX6675_SS_PIN              66
 //@@@
 
 //###IF_BLOCKS
@@ -170,7 +169,7 @@
   #define KILL_PIN              NoPin
 #endif
 
-#if ENABLED(ULTRA_LCD)
+#if HAS_SPI_LCD
   #if ENABLED(NEWPANEL)
     #if ENABLED(PANEL_ONE)
       #define LCD_PINS_RS       40
@@ -270,3 +269,4 @@
   #endif // NEWPANEL
 #endif // ULTRA_LCD
 //@@@
+

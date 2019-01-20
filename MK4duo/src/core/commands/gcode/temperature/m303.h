@@ -44,24 +44,31 @@ inline void gcode_M303(void) {
   uint8_t     method  = parser.intval('R', 0);
   const bool  store   = parser.boolval('U');
 
-  const int16_t temp = parser.celsiusval('S', h < 0 ? 70 : 200);
+  const int16_t target = parser.celsiusval('S', h < 0 ? 70 : 200);
 
   if (!commands.get_target_heater(h)) return;
 
-  SERIAL_EM(MSG_PID_AUTOTUNE_START);
+  if (target > heaters[h].data.maxtemp - 15) {
+    SERIAL_EM(MSG_PID_TEMP_TOO_HIGH);
+    return;
+  }
 
-  if (heaters[h].type == IS_HOTEND)
+  SERIAL_EM(MSG_PID_AUTOTUNE_START);
+  lcdui.reset_alert_level();
+  LCD_MESSAGEPGM(MSG_PID_AUTOTUNE_START);
+
+  if (heaters[h].data.type == IS_HOTEND)
     SERIAL_MV("Hotend:", h);
   #if HAS_TEMP_BED
-    else if (heaters[h].type == IS_BED)
+    else if (heaters[h].data.type == IS_BED)
       SERIAL_MSG("BED");
   #endif
   #if HAS_TEMP_CHAMBER
-    else if(heaters[h].type == IS_CHAMBER)
+    else if(heaters[h].data.type == IS_CHAMBER)
       SERIAL_MSG("CHAMBER");
   #endif
   #if HAS_TEMP_COOLER
-    else if(heaters[h].type == IS_COOLER)
+    else if(heaters[h].data.type == IS_COOLER)
       SERIAL_MSG("COOLER");
   #endif
 
@@ -70,12 +77,12 @@ inline void gcode_M303(void) {
 
   NOMORE(method, 4);
 
-  SERIAL_MV(" Temp:", temp);
+  SERIAL_MV(" Temp:", target);
   SERIAL_MV(" Cycles:", cycle);
   SERIAL_MV(" Method:", method);
   if (store) SERIAL_MSG(" Apply result");
   SERIAL_EOL();
 
-  thermalManager.PID_autotune(&heaters[h], temp, cycle, method, store);
+  thermalManager.PID_autotune(&heaters[h], target, cycle, method, store);
 
 }

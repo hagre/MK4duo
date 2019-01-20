@@ -39,22 +39,26 @@
  */
 inline void gcode_M204(void) {
 
-  GET_TARGET_EXTRUDER(204);
+  if (commands.get_target_tool(204)) return;
 
-  if (parser.seen('S')) {  // Kept for legacy compatibility. Should NOT BE USED for new developments.
-    mechanics.travel_acceleration = mechanics.acceleration = parser.value_linear_units();
-    SERIAL_EMV("Setting Print and Travel acceleration: ", mechanics.acceleration );
-  }
-  if (parser.seen('P')) {
-    mechanics.acceleration = parser.value_linear_units();
-    SERIAL_EMV("Setting Print acceleration: ", mechanics.acceleration );
-  }
-  if (parser.seen('R')) {
-    mechanics.retract_acceleration[TARGET_EXTRUDER] = parser.value_linear_units();
-    SERIAL_EMV("Setting Retract acceleration: ", mechanics.retract_acceleration[TARGET_EXTRUDER]);
-  }
-  if (parser.seen('V')) {
-    mechanics.travel_acceleration = parser.value_linear_units();
-    SERIAL_EMV("Setting Travel acceleration: ", mechanics.travel_acceleration );
-  }
+  #if DISABLED(DISABLE_M503)
+    // No arguments? Show M204 report.
+    if (!parser.seen("SPRVE")) {
+      mechanics.print_M204();
+      return;
+    }
+  #endif
+
+  if (parser.seen('S')) // Kept for legacy compatibility. Should NOT BE USED for new developments.
+    mechanics.data.travel_acceleration = mechanics.data.acceleration = parser.value_linear_units();
+
+  if (parser.seen('P'))
+    mechanics.data.acceleration = parser.value_linear_units();
+
+  if (parser.seen('R'))
+    mechanics.data.retract_acceleration[TARGET_EXTRUDER] = parser.value_linear_units();
+
+  if (parser.seen('V'))
+    mechanics.data.travel_acceleration = parser.value_linear_units();
+
 }

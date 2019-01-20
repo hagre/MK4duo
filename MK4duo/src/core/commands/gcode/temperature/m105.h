@@ -33,8 +33,6 @@
  */
 inline void gcode_M105(void) {
 
-  GET_TARGET_HOTEND(105);
-
   const bool showRaw = parser.boolval('X');
 
   #if HEATER_COUNT > 0
@@ -45,8 +43,9 @@ inline void gcode_M105(void) {
     #endif
     #if ENABLED(CNCROUTER) && ENABLED(FAST_PWM_CNCROUTER)
       cnc.print_Speed();
+      SERIAL_MV(" fr:", MMS_TO_MMM(mechanics.feedrate_mm_s));
     #endif
-  #else // !HAS_TEMP_0 && !HAS_TEMP_BED
+  #else
     SERIAL_LM(ER, MSG_ERR_NO_THERMISTORS);
   #endif
 

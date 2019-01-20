@@ -19,6 +19,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
 /**
  * probe.h
@@ -26,21 +27,9 @@
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
 
-#ifndef _PROBE_H_
-#define _PROBE_H_
-
-// TRIGGERED_WHEN_STOWED_TEST can easily be extended to servo probes, ... if needed.
-#if ENABLED(PROBE_IS_TRIGGERED_WHEN_STOWED_TEST)
-  #if HAS_Z_PROBE_PIN
-    #define _TRIGGERED_WHEN_STOWED_TEST (READ(Z_PROBE_PIN) != endstops.isLogic(Z_PROBE))
-  #else
-    #define _TRIGGERED_WHEN_STOWED_TEST (READ(Z_MIN_PIN) != endstops.isLogic(Z_MIN))
-  #endif
-#endif
-
 #if HAS_Z_SERVO_PROBE
-  #define DEPLOY_Z_SERVO() MOVE_SERVO(Z_ENDSTOP_SERVO_NR, probe.z_servo_angle[0])
-  #define STOW_Z_SERVO()   MOVE_SERVO(Z_ENDSTOP_SERVO_NR, probe.z_servo_angle[1])
+  #define DEPLOY_Z_SERVO() MOVE_SERVO(Z_PROBE_SERVO_NR, servo[Z_PROBE_SERVO_NR].angle[0])
+  #define STOW_Z_SERVO()   MOVE_SERVO(Z_PROBE_SERVO_NR, servo[Z_PROBE_SERVO_NR].angle[1])
 #endif
 
 #if HAS_BED_PROBE
@@ -51,6 +40,18 @@
   #define STOW_PROBE()
 #endif
 
+// Struct Probe data
+typedef struct {
+
+  float     offset[XYZ];
+
+  uint16_t  speed_fast,
+            speed_slow;
+
+  uint8_t   repetitions;
+
+} probe_data_t;
+
 class Probe {
 
   public: /** Constructor */
@@ -59,15 +60,20 @@ class Probe {
 
   public: /** Public Parameters */
 
-    static float offset[XYZ];
-
-    #if HAS_Z_SERVO_PROBE
-      static const int z_servo_angle[2];
-    #endif
+    static probe_data_t data;
 
   public: /** Public Function */
 
+    /**
+     * Initialize Factory parameters
+     */
+    static void factory_parameters();
+
     static bool set_deployed(const bool deploy);
+
+    #if Z_PROBE_AFTER_PROBING > 0
+      static void move_z_after_probing();
+    #endif
 
     #if HAS_BED_PROBE || ENABLED(PROBE_MANUALLY)
 
@@ -81,7 +87,7 @@ class Probe {
        *   - Raise to the BETWEEN height
        * - Return the probed Z position
        */
-      static float check_pt(const float &rx, const float &ry, const bool stow, const int verbose_level, const bool probe_relative=true);
+      static float check_pt(const float &rx, const float &ry, const ProbePtRaiseEnum raise_after=PROBE_PT_NONE, const uint8_t verbose_level=0, const bool probe_relative=true);
 
     #endif
 
@@ -89,40 +95,21 @@ class Probe {
       static void probing_pause(const bool onoff);
     #endif
 
-    #if ENABLED(BLTOUCH)
-      static void bltouch_command(int angle);
-      static bool set_bltouch_deployed(const bool deploy);
-      FORCE_INLINE void bltouch_init() {
-        // Make sure any BLTouch error condition is cleared
-        bltouch_command(BLTOUCH_RESET);
-        set_bltouch_deployed(true);
-        set_bltouch_deployed(false);
-      }
-    #endif
-
-  private: /** Private Parameters */
+    static void servo_test();
 
   private: /** Private Function */
 
-    /**
-     * @brief Used by run_z_probe to do a single Z probe move.
-     *
-     * @param  z        Z destination
-     * @param  fr_mm_s  Feedrate in mm/s
-     * @return true to indicate an error
-     */
-    static bool move_to_z(const float z, const float fr_mm_m);
+    static bool specific_action(const bool deploy);
 
-    /**
-     * @details Used by check_pt to do a single Z probe.
-     *          Leaves current_position[Z_AXIS] at the height where the probe triggered.
-     *
-     * @return The raw Z position where the probe was triggered
-     */
-    static float run_z_probe();
+    static bool move_to_z(const float z, const float fr_mm_s);
+
+    static void do_raise(const float z_raise);
+
+    static float run_probing();
 
     #if ENABLED(Z_PROBE_ALLEN_KEY)
       static void run_deploy_moves_script();
+      static void run_stow_moves_script();
     #endif
 
     #if HAS_Z_PROBE_SLED
@@ -132,5 +119,3 @@ class Probe {
 };
 
 extern Probe probe;
-
-#endif /* _PROBE_H_ */

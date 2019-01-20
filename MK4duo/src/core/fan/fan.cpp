@@ -29,100 +29,146 @@
 #include "../../../MK4duo.h"
 
 #if FAN_COUNT > 0
-
   Fan fans[FAN_COUNT];
+#endif
 
-  /**
-   * Initialize Fans
-   */
-  void Fan::init() {
+/**
+ * Initialize Fans
+ */
+void Fan::init() {
 
-    Speed               = 0;
-    paused_Speed        = 0;
-    Kickstart           = 0;
-    pwm_pos             = 0;
-    lastpwm             = -1;
-    triggerTemperatures = (HOTEND_AUTO_FAN_TEMPERATURE);
+  Speed               = 0;
+  paused_Speed        = 0;
+  scaled_Speed        = 128;
+  Kickstart           = 0;
 
-    setIdle(false);
+  setIdle(false);
 
-    if (printer.isRunning()) return; // All running not reinitialize
+  if (printer.isRunning()) return; // All running not reinitialize
 
-    if (pin > 0) HAL::pinMode(pin, isHWInverted() ? OUTPUT_HIGH : OUTPUT_LOW);
+  if (data.pin > 0) HAL::pinMode(data.pin, isHWInverted() ? OUTPUT_HIGH : OUTPUT_LOW);
 
-  }
+}
 
-  void Fan::SetAutoMonitored(const int8_t h) {
-    if (WITHIN(h, 0, HOTENDS - 1) || h == 7)
-      SBI(autoMonitored, (uint8_t)h);
-    else      
-      autoMonitored = 0;
-    spin();
-  }
+void Fan::setAutoMonitored(const int8_t h) {
+  if (WITHIN(h, 0, HOTENDS - 1) || h == 7)
+    SBI(data.autoMonitored, (uint8_t)h);
+  else      
+    data.autoMonitored = 0;
+  spin();
+}
 
-  void Fan::spin() {
-    static millis_t next_auto_fan_check_ms  = 0,
-                    lastMotorOn             = 0;
+void Fan::setOutputPwm() {
+  const uint8_t new_Speed = isHWInverted() ? 255 - actual_Speed() : actual_Speed();
+  HAL::analogWrite(data.pin, new_Speed, data.freq);
+}
 
-    millis_t ms = millis();
+void Fan::spin() {
 
-    if (autoMonitored == 0) return;
+  static watch_t controller_fan_watch(CONTROLLERFAN_SECS * 1000UL);
 
-    if (ELAPSED(ms, next_auto_fan_check_ms)) {
-      // Check for Hotend temperature
-      LOOP_HOTEND() {
-        if (TEST(autoMonitored, h))
-          Speed = (static_cast<uint16_t>(heaters[h].current_temperature) > triggerTemperatures) ? HOTEND_AUTO_FAN_SPEED : HOTEND_AUTO_FAN_MIN_SPEED;
+  if (data.autoMonitored != 0) {
+
+    // Check for Hotend temperature
+    LOOP_HOTEND() {
+      if (TEST(data.autoMonitored, h)) {
+        if (heaters[h].current_temperature > data.triggerTemperature) {
+          Speed = data.max_Speed;
+          break;
+        }
+        else
+          Speed = data.min_Speed;
       }
+    }
 
-      // Check for Controller fan
-      if (TEST(autoMonitored, 7)) {
-        if (X_ENABLE_READ == X_ENABLE_ON || Y_ENABLE_READ == Y_ENABLE_ON || Z_ENABLE_READ == Z_ENABLE_ON
-          || E0_ENABLE_READ == E_ENABLE_ON // If any of the drivers are enabled...
-          #if DRIVER_EXTRUDERS > 1
-            || E1_ENABLE_READ == E_ENABLE_ON
-            #if HAS_X2_ENABLE
-              || X2_ENABLE_READ == X_ENABLE_ON
-            #endif
-            #if DRIVER_EXTRUDERS > 2
-              || E2_ENABLE_READ == E_ENABLE_ON
-              #if DRIVER_EXTRUDERS > 3
-                || E3_ENABLE_READ == E_ENABLE_ON
-                #if DRIVER_EXTRUDERS > 4
-                  || E4_ENABLE_READ == E_ENABLE_ON
-                  #if DRIVER_EXTRUDERS > 5
-                    || E5_ENABLE_READ == E_ENABLE_ON
-                  #endif
+    // Check for Controller fan
+    if (TEST(data.autoMonitored, 7)) {
+
+      // Check Heaters
+      if (thermalManager.heaters_isActive()) controller_fan_watch.start();
+
+      #if HAS_MCU_TEMPERATURE
+        // Check MSU
+        if (thermalManager.mcu_current_temperature >= 50) controller_fan_watch.start();
+      #endif
+
+      // Check Motors
+      if (X_ENABLE_READ() == X_ENABLE_ON || Y_ENABLE_READ() == Y_ENABLE_ON || Z_ENABLE_READ() == Z_ENABLE_ON
+        || E0_ENABLE_READ() == E_ENABLE_ON // If any of the drivers are enabled...
+        #if DRIVER_EXTRUDERS > 1
+          || E1_ENABLE_READ() == E_ENABLE_ON
+          #if HAS_X2_ENABLE
+            || X2_ENABLE_READ() == X_ENABLE_ON
+          #endif
+          #if DRIVER_EXTRUDERS > 2
+            || E2_ENABLE_READ() == E_ENABLE_ON
+            #if DRIVER_EXTRUDERS > 3
+              || E3_ENABLE_READ() == E_ENABLE_ON
+              #if DRIVER_EXTRUDERS > 4
+                || E4_ENABLE_READ() == E_ENABLE_ON
+                #if DRIVER_EXTRUDERS > 5
+                  || E5_ENABLE_READ() == E_ENABLE_ON
                 #endif
               #endif
             #endif
           #endif
-        ) {
-          lastMotorOn = ms; // set time to NOW so the fan will turn on
-        }
-
-        // Fan off if no steppers have been enabled for CONTROLLERFAN_SECS seconds
-        Speed = (!lastMotorOn || ELAPSED(ms, lastMotorOn + (CONTROLLERFAN_SECS) * 1000UL)) ? CONTROLLERFAN_MIN_SPEED : CONTROLLERFAN_SPEED;
+        #endif
+      ) {
+        controller_fan_watch.start();
       }
 
-      next_auto_fan_check_ms = ms + 2500UL; // Not a time critical function, so only check every 2.5s
+      // Fan off if no steppers or heaters have been enabled for CONTROLLERFAN_SECS seconds
+      Speed = controller_fan_watch.elapsed() ? data.min_Speed : data.max_Speed;
     }
+
   }
 
-  #if HARDWARE_PWM
-    void Fan::SetHardwarePwm() {
-      if (pin > NoPin) {
-        if (isHWInverted())
-          pwm_pos = 255 - Speed;
-        else
-          pwm_pos = Speed;
+  Speed = Speed ? constrain(Speed, data.min_Speed, data.max_Speed) : 0;
 
-        if (pwm_pos != lastpwm) {
-          lastpwm = pwm_pos;
-          HAL::analogWrite(pin, pwm_pos, freq);
-        }
-      }
+}
+
+void Fan::print_M106() {
+  bool found_auto = false;
+  SERIAL_LM(CFG, "Fans: P<Fan> U<Pin> L<Min Speed> X<Max Speed> F<Freq> I<Hardware Inverted 0-1> H<Auto mode> T<Trig Temp>");
+  SERIAL_SMV(CFG, "  M106 P", (int)data.ID);
+  SERIAL_MV(" U", data.pin);
+  SERIAL_MV(" L", data.min_Speed);
+  SERIAL_MV(" X", data.max_Speed);
+  SERIAL_MV(" F", data.freq);
+  SERIAL_MV(" I", isHWInverted());
+  SERIAL_MSG(" H");
+  LOOP_HOTEND() {
+    if (TEST(data.autoMonitored, h)) {
+      SERIAL_VAL((int)h);
+      SERIAL_MV(" T", data.triggerTemperature);
+      found_auto = true;
+      break;
     }
-  #endif
+  }
+  if (!found_auto) {
+    if (TEST(data.autoMonitored, 7))
+      SERIAL_CHR('7');
+    else
+      SERIAL_MSG("-1");
+  }
+  SERIAL_EOL();
+}
 
-#endif // FAN_COUNT > 0
+#if ENABLED(TACHOMETRIC)
+  void tacho_interrupt0() { fans[0].tacho.interrupt(); }
+  #if FAN_COUNT > 1
+    void tacho_interrupt1() { fans[1].tacho.interrupt(); }
+    #if FAN_COUNT > 2
+      void tacho_interrupt2() { fans[2].tacho.interrupt(); }
+      #if FAN_COUNT > 3
+        void tacho_interrupt3() { fans[3].tacho.interrupt(); }
+        #if FAN_COUNT > 4
+          void tacho_interrupt4() { fans[4].tacho.interrupt(); }
+          #if FAN_COUNT > 5
+            void tacho_interrupt5() { fans[5].tacho.interrupt(); }
+          #endif
+        #endif
+      #endif
+    #endif
+  #endif
+#endif

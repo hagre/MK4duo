@@ -44,6 +44,7 @@
 
   LEDLights leds;
 
+  /** Public Parameters */
   #if ENABLED(LED_COLOR_PRESETS)
     const LEDColor LEDLights::defaultLEDColor = MakeLEDColor(
       LED_USER_PRESET_RED,
@@ -54,11 +55,12 @@
     );
   #endif
 
-  #if ENABLED(LED_CONTROL_MENU)
+  #if ENABLED(LED_CONTROL_MENU) || ENABLED(PRINTER_EVENT_LEDS)
     LEDColor LEDLights::color;
-    bool LEDLights::lights_on;
+    bool LEDLights::lights_on = false;
   #endif
 
+  /** Public Function */
   void LEDLights::setup() {
 
     #if ENABLED(NEOPIXEL_LED)
@@ -87,7 +89,9 @@
 
     #if ENABLED(NEOPIXEL_LED)
 
-      const uint32_t neocolor = strip.Color(incol.r, incol.g, incol.b, incol.w);
+      const uint32_t neocolor = LEDColorWhite() == incol
+                              ? strip.Color(NEO_WHITE)
+                              : strip.Color(incol.r, incol.g, incol.b, incol.w);
       static uint16_t nextLed = 0;
 
       strip.setBrightness(incol.i);

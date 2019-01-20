@@ -26,7 +26,7 @@
  * Copyright (C) 2017 Alberto Cotronei @MagoKimbra
  */
 
-#if HAS_SDSUPPORT
+#if HAS_SD_SUPPORT
 
   #define CODE_M20
   #define CODE_M21
@@ -41,6 +41,7 @@
   #define CODE_M30
   #define CODE_M32
   #define CODE_M33
+  #define CODE_M524
 
   /**
    * M20: List SD card to serial output
@@ -54,53 +55,69 @@
   /**
    * M21: Init SD Card
    */
-  inline void gcode_M21(void) {
-    card.mount();
-  }
+  inline void gcode_M21(void) { card.mount(); }
 
   /**
    * M22: Release SD Card
    */
-  inline void gcode_M22(void) {
-    card.unmount();
-  }
+  inline void gcode_M22(void) { card.unmount(); }
 
   /**
    * M23: Select a file
    */
   inline void gcode_M23(void) {
+    #if HAS_SD_RESTART
+      card.delete_restart_file();
+    #endif
     // Simplify3D includes the size, so zero out all spaces (#7227)
     // Questa funzione blocca il nome al primo spazio quindi file con spazio nei nomi non funziona da rivedere
     //for (char *fn = parser.string_arg; *fn; ++fn) if (*fn == ' ') *fn = '\0';
     card.selectFile(parser.string_arg);
+    lcdui.set_status(card.fileName);
   }
 
   /**
    * M24: Start or Resume SD Print
    */
   inline void gcode_M24(void) {
+
+    if (parser.seenval('S')) card.setIndex(parser.value_long());
+    if (parser.seenval('T')) print_job_counter.resume(parser.value_long());
+
     #if ENABLED(PARK_HEAD_ON_PAUSE)
-      resume_print();
+      if (advancedpause.did_pause_print) {
+        advancedpause.resume_print();
+        return;
+      }
     #endif
 
-    card.startFileprint();
-    print_job_counter.start();
-    #if HAS_POWER_CONSUMPTION_SENSOR
-      powerManager.startpower = powerManager.consumption_hour;
-    #endif
+    if (card.isFileOpen()) {
+      card.startFileprint();
+      print_job_counter.start();
+    }
+
+    lcdui.reset_status();
+
+    SERIAL_L(REQUESTCONTINUE);
+
   }
 
   /**
    * M25: Pause SD Print
    */
   void gcode_M25(void) {
-    card.pauseSDPrint();
-    print_job_counter.pause();
-    SERIAL_STR(PAUSE);
-    SERIAL_EOL();
+
+    // Set initial pause flag to prevent more commands from landing in the queue while we try to pause
+    #if ENABLED(SDSUPPORT)
+      if (IS_SD_PRINTING()) card.pauseSDPrint();
+    #endif
 
     #if ENABLED(PARK_HEAD_ON_PAUSE)
-      commands.enqueue_and_echo_P(PSTR("M125")); // Must be enqueued with pauseSDPrint set to be last in the buffer
+      gcode_M125();
+    #else
+      print_job_counter.pause();
+      lcdui.reset_status();
+      SERIAL_L(REQUESTPAUSE);
     #endif
   }
 
@@ -108,14 +125,21 @@
    * M26: Set SD Card file index
    */
   inline void gcode_M26(void) {
-    if (card.cardOK && parser.seen('S'))
+    if (card.isDetected() && parser.seenval('S'))
       card.setIndex(parser.value_long());
   }
 
   /**
-   * M27: Get SD Card status
+   * M27: Get SD Card status or set the SD status auto-report interval.
    */
-  inline void gcode_M27(void) { card.printStatus(); }
+  inline void gcode_M27(void) {
+    if (parser.seen('C'))
+      SERIAL_EMT("Current file: ", card.fileName);
+    else if (parser.seenval('S'))
+      card.setAutoreportSD(parser.value_bool());
+    else
+      card.printStatus();
+  }
 
   /**
    * M28: Start SD Write
@@ -126,13 +150,13 @@
    * M29: Stop SD Write
    * Processed in write to file routine above
    */
-  inline void gcode_M29(void) { card.saving = false; }
+  inline void gcode_M29(void) { card.setSaving(false); }
 
   /**
    * M30 <filename>: Delete SD Card file
    */
   inline void gcode_M30(void) {
-    if (card.cardOK) {
+    if (card.isDetected()) {
       card.closeFile();
       card.deleteFile(parser.string_arg);
     }
@@ -142,9 +166,9 @@
    * M32: Select file and start SD print
    */
   inline void gcode_M32(void) {
-    if (card.sdprinting) stepper.synchronize();
+    if (IS_SD_PRINTING()) planner.synchronize();
 
-    if (card.cardOK) {
+    if (card.isDetected()) {
       card.closeFile();
 
       char* namestartpos = parser.string_arg ; // default name position
@@ -158,16 +182,16 @@
       mechanics.feedrate_percentage = 100;  // 100% mechanics.feedrate_mm_s
       card.startFileprint();
       print_job_counter.start();
-      #if HAS_POWER_CONSUMPTION_SENSOR
-        powerManager.startpower = powerManager.consumption_hour;
-      #endif
     }
   }
 
   /**
-   * M33: Close File and store position restart.gcode
+   * M33: Stop printing, close file and save restart.gcode
    */
-  inline void gcode_M33(void) { card.stopSDPrint(); }
+  inline void gcode_M33(void) {
+    if (card.isDetected() && IS_SD_PRINTING())
+      card.setAbortSDprinting(true);
+  }
 
   #if ENABLED(SDCARD_SORT_ALPHA) && ENABLED(SDSORT_GCODE)
 
@@ -187,4 +211,11 @@
 
   #endif // SDCARD_SORT_ALPHA && SDSORT_GCODE
 
-#endif // HAS_SDSUPPORT
+  /**
+   * M524: Abort the current SD print job (started with M24)
+   */
+  inline void gcode_M524(void) {
+    if (IS_SD_PRINTING()) card.setAbortSDprinting(true);
+  }
+
+#endif // HAS_SD_SUPPORT

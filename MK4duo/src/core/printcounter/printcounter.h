@@ -19,39 +19,42 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+#pragma once
 
-#ifndef _PRINTCOUNTER_H_
-#define _PRINTCOUNTER_H_
-
-#include "stopwatch.h"
 #include "duration_t.h"
 
 //#define DEBUG_PRINTCOUNTER
 
 struct printStatistics {
-  uint16_t  totalPrints;    // Number of prints
-  uint16_t  finishedPrints; // Number of complete prints
-  uint32_t  printTime;      // Accumulated printing time
-  uint32_t  printer_usage;  // Printer usage ON
-  double    filamentUsed;   // Accumulated filament consumed in mm
+  uint16_t  totalPrints,      // Number of prints
+            finishedPrints;   // Number of complete prints
+  uint32_t  timePrint,        // Accumulated printing time
+            longestPrint,     // Longest successful print job
+            timePowerOn;      // Accumulated printer in power on
+  float     filamentUsed;     // Accumulated filament consumed in mm
+
+  #if HAS_POWER_CONSUMPTION_SENSOR
+    uint32_t consumptionHour; // Holds the power consumption per hour as accurately measured
+  #endif
+
 };
 
 class PrintCounter: public Stopwatch {
 
   public: /** Public Parameters */
 
-    static printStatistics data;
-
-    /**
-     * @brief Stats were loaded from SDCARD
-     * @details If set to true it indicates if the statistical data was already
-     * loaded from the SDCARD.
-     */
-    static bool loaded;
-
   private: /** Private Parameters */
 
     typedef Stopwatch super;
+
+    static printStatistics data;
+
+    /**
+     * @brief Timestamp of the last call to deltaDuration()
+     * @details Stores the timestamp of the last deltaDuration(), this is
+     * required due to the updateInterval cycle.
+     */
+    static millis_t lastDuration;
 
   public: /** Public Function */
 
@@ -71,18 +74,6 @@ class PrintCounter: public Stopwatch {
     static void initStats();
 
     /**
-     * @brief Loads the Print Statistics
-     * @details Loads the statistics from SDCARD
-     */
-    static void loadStats();
-
-    /**
-     * @brief Saves the Print Statistics
-     * @details Saves the statistics to SDCARD
-     */
-    static void saveStats();
-
-    /**
      * @brief Serial output the Print Statistics
      * @details This function may change in the future, for now it directly
      * prints the statistical data to serial.
@@ -90,11 +81,39 @@ class PrintCounter: public Stopwatch {
     static void showStats();
 
     /**
+     * @brief Saves the Print Statistics
+     * @details Saves the statistics to EEPROM
+     */
+    static void saveStats();
+
+    /**
+     * @brief Return the currently loaded statistics
+     * @details Return the raw data, in the same structure used internally
+     */
+    static printStatistics getStats() { return data; }
+
+    /**
      * @brief Loop function
      * @details This function should be called at loop, it will take care of
      * periodically save the statistical data to SDCARD and do time keeping.
      */
     static void tick();
+
+    /**
+     * @brief Increment the total filament used
+     * @details The total filament used counter will be incremented by "amount".
+     *
+     * @param amount The amount of filament used in mm
+     */
+    static void incFilamentUsed(float const &amount);
+
+    /**
+     * @brief Increment the total Consumtion Hour
+     */
+    #if HAS_POWER_CONSUMPTION_SENSOR
+      static void incConsumptionHour() { data.consumptionHour++; }
+      static uint32_t getConsumptionHour() { return data.consumptionHour; }
+    #endif
 
     /**
      * The following functions are being overridden
@@ -116,26 +135,12 @@ class PrintCounter: public Stopwatch {
   private: /** Private Function */
 
     /**
-     * @brief Interval in seconds between counter updates
-     * @details This const value defines what will be the time between each
-     * accumulator update.
+     * @brief Loads the Print Statistics
+     * @details Loads the statistics from SDCARD
      */
-    static const uint16_t updateInterval;
+    static void loadStats();
 
-    /**
-     * @brief Interval in seconds between SDCARD saves
-     * @details This const value defines what will be the time between each
-     */
-    static const uint16_t saveInterval;
-
-    /**
-     * @brief Timestamp of the last call to deltaDuration()
-     * @details Stores the timestamp of the last deltaDuration(), this is
-     * required due to the updateInterval cycle.
-     */
-    static millis_t lastDuration;
-
-  protected: /** Protected Parameters */
+  protected: /** Protected Function */
 
     /**
      * @brief dT since the last call
@@ -148,5 +153,3 @@ class PrintCounter: public Stopwatch {
 };
 
 extern PrintCounter print_job_counter;
-
-#endif /* _PRINTCOUNTER_H_ */

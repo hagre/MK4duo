@@ -43,7 +43,8 @@
  * - Delta Home Safe Zone
  * - Axis steps per unit
  * - Axis feedrate
- * - Axis accelleration
+ * - Axis acceleration
+ * - Axis jerk
  * - Homing feedrate
  * - Hotend offset
  *
@@ -76,9 +77,10 @@
 // Make delta curves from many straight lines (linear interpolation).
 // This is a trade-off between visible corners (not enough segments)
 // and processor overload (too many expensive sqrt calls).
-// The new function do not use segments per second but segments per mm
-// if you want use new function comment this (using // at the start of the line)
 #define DELTA_SEGMENTS_PER_SECOND 200
+
+// Subsegment per line 10 - xxx
+#define DELTA_SEGMENTS_PER_LINE 20
 
 // NOTE: All following values for DELTA_* MUST be floating point,
 // so always have a decimal point in them.
@@ -228,8 +230,8 @@
 // Z Servo Endstop
 // Remember active servos in Configuration_Feature.h
 // Define nr servo for endstop -1 not define. Servo index start 0
-#define Z_ENDSTOP_SERVO_NR -1
-#define Z_ENDSTOP_SERVO_ANGLES {90,0} // Z Servo Deploy and Stow angles
+#define Z_PROBE_SERVO_NR -1
+#define Z_SERVO_ANGLES {90,0} // Z Servo Deploy and Stow angles
 
 // The "Manual Probe" provides a means to do "Auto" Bed Leveling and calibration without a probe.
 // Use G29 or G30 A repeatedly, adjusting the Z height at each point with movement commands
@@ -250,6 +252,13 @@
 // Allen key retractable z-probe as seen on many Kossel delta printers - http://reprap.org/wiki/Kossel#Automatic_bed_leveling_probe
 // Deploys by touching z-axis belt. Retracts by pushing the probe down.
 //#define Z_PROBE_ALLEN_KEY
+
+// If you have TMC2130 or TMC5130 you can use StallGuard2 to probe the bed with the nozzle.
+//
+// CAUTION: This could cause damage to machines that use a lead screw or threaded rod
+//          to move the Z axis. Take extreme care when attempting to enable this feature.
+//
+//#define Z_PROBE_SENSORLESS
 
 // Start and end location values are used to deploy/retract the probe (will move from start to end and back again)
 #define Z_PROBE_DEPLOY_START_LOCATION   {0, 0, 30}  // X, Y, Z, start location for z-probe deployment sequence
@@ -276,8 +285,10 @@
 
 // X and Y axis travel speed between probes, in mm/min
 #define XY_PROBE_SPEED 10000
-// Z probe speed, in mm/min
-#define Z_PROBE_SPEED 3000
+// Speed for the first approach, in mm/min
+#define Z_PROBE_SPEED_FAST 3000
+// Speed for the "accurate" probe of each point, in mm/min
+#define Z_PROBE_SPEED_SLOW 1000
 
 // Z Probe repetitions, median for best result
 #define Z_PROBE_REPETITIONS 1
@@ -285,9 +296,14 @@
 // Enable Z Probe Repeatability test to see how accurate your probe is
 //#define Z_MIN_PROBE_REPEATABILITY_TEST
 
+// Before deploy/stow pause for user confirmation
+//#define PAUSE_BEFORE_DEPLOY_STOW
+
 // Probe Raise options provide clearance for the probe to deploy, stow, and travel.
-#define Z_PROBE_DEPLOY_HEIGHT  30  // Z position for the probe to deploy/stow
-#define Z_PROBE_BETWEEN_HEIGHT 10  // Z position for travel between points
+#define Z_PROBE_DEPLOY_HEIGHT 15  // Z position for the probe to deploy/stow
+#define Z_PROBE_BETWEEN_HEIGHT 5  // Z position for travel between points
+#define Z_PROBE_AFTER_PROBING  0  // Z position after probing is done
+#define Z_PROBE_LOW_POINT     -2  // Farthest distance below the trigger-point to go before stopping
 
 // For M851 give a range for adjusting the Probe Z Offset
 #define Z_PROBE_OFFSET_RANGE_MIN -50
@@ -301,11 +317,12 @@
 //#define PROBING_HEATERS_OFF       // Turn heaters off when probing
 //#define PROBING_FANS_OFF          // Turn fans off when probing
 
-// Use the LCD controller for bed leveling
-// Requires MESH BED LEVELING or PROBE MANUALLY
+// Add a bed leveling sub-menu for ABL or MBL.
+// Include a guided procedure if manual probing is enabled.
 //#define LCD_BED_LEVELING
-#define LCD_Z_STEP 0.025    // Step size while manually probing Z axis.
-#define LCD_PROBE_Z_RANGE 4 // Z Range centered on Z MIN POS for LCD Z adjustment
+#define MESH_EDIT_Z_STEP 0.025  // Step size while manually probing Z axis.
+#define LCD_PROBE_Z_RANGE 4     // Z Range centered on Z MIN POS for LCD Z adjustment
+//#define MESH_EDIT_MENU        // Add a menu to edit mesh points
 /*****************************************************************************************/
 
 
@@ -414,16 +431,8 @@
 //#define AUTO_BED_LEVELING_UBL
 //#define AUTO_BED_LEVELING_BILINEAR
 
-// Enable detailed logging of G28, G29, G30, M48, etc.
-// Turn on with the command 'M111 S32'.
-// NOTE: Requires a lot of PROGMEM!
-//#define DEBUG_LEVELING_FEATURE
-
 // enable a graphics overly while editing the mesh from auto-level
 //#define MESH_EDIT_GFX_OVERLAY
-
-// Mesh inset margin on print area
-#define MESH_INSET 10
 
 // Enable the G26 Mesh Validation Pattern tool.
 //#define G26_MESH_VALIDATION
@@ -436,9 +445,6 @@
 // Sophisticated users prefer no movement of nozzle
 #define UBL_MESH_EDIT_MOVES_Z
 
-// Save the currently active mesh in the current slot on M500
-#define UBL_SAVE_ACTIVE_ON_M500
-
 // When the nozzle is off the mesh, this value is used as the Z-Height correction value.
 //#define UBL_Z_RAISE_WHEN_OFF_MESH 2.5
 /** END Unified Bed Leveling */
@@ -447,9 +453,6 @@
 // Works best with 5 or more points in each dimension.
 #define GRID_MAX_POINTS_X 7
 #define GRID_MAX_POINTS_Y 7
-
-// The Z probe minimum outer margin (to validate G29 parameters).
-#define MIN_PROBE_EDGE 10
 
 // Probe along the Y axis, advancing X after each column
 //#define PROBE_Y_FIRST
@@ -541,8 +544,8 @@
 // Feedrates for manual moves along        X,     Y,     Z,  E from panel
 #define MANUAL_FEEDRATE               {50*60, 50*60, 50*60, 10*60}
 // Minimum feedrate
-#define DEFAULT_MINIMUMFEEDRATE       0.0
-#define DEFAULT_MINTRAVELFEEDRATE     0.0
+#define DEFAULT_MIN_FEEDRATE          0.0
+#define DEFAULT_MIN_TRAVEL_FEEDRATE   0.0
 // Minimum planner junction speed. Sets the default minimum speed the planner plans for at the end
 // of the buffer and all stops. This should not be much greater than zero and should only be changed
 // if unwanted behavior is observed on a user's machine when running at very slow speeds.
@@ -551,7 +554,7 @@
 
 
 /*****************************************************************************************
- ******************************** Axis accelleration *************************************
+ ******************************** Axis acceleration **************************************
  *****************************************************************************************/
 //  Maximum start speed for accelerated moves.    X,    Y,    Z,   E0...(per extruder)
 #define DEFAULT_MAX_ACCELERATION              {5000, 5000, 5000, 1000, 1000, 1000, 1000}
